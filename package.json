@@ -1,0 +1,12 @@
+{
+  "name": "healing-forest-admin",
+  "version": "1.0.0",
+  "description": "Panel administrativo para Healing Forest",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "deploy": "git add . && git commit -m 'Update' && git push"
+  },
+  "keywords": ["admin", "healing", "forest"],
+  "author": "Healing Forest Team",
+  "license": "MIT"
+}
