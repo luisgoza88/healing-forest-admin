@@ -2895,8 +2895,14 @@ function showAdjustStock(productId) {
 }
 
 function showLowStockAlert() {
-    db.collection('products').where('stock', '<=', 'minStock').get().then(snapshot => {
-        if (snapshot.empty) {
+    // Get all products and filter in memory to avoid complex queries
+    db.collection('products').get().then(snapshot => {
+        const lowStockProducts = snapshot.docs.filter(doc => {
+            const product = doc.data();
+            return product.stock <= product.minStock;
+        });
+        
+        if (lowStockProducts.length === 0) {
             alert('✅ No hay productos con stock bajo en este momento');
             return;
         }
@@ -2906,18 +2912,16 @@ function showLowStockAlert() {
         alertContent += '<thead><tr><th>Producto</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Acción</th></tr></thead>';
         alertContent += '<tbody>';
         
-        snapshot.forEach(doc => {
+        lowStockProducts.forEach(doc => {
             const product = doc.data();
-            if (product.stock <= product.minStock) {
-                alertContent += `
-                    <tr>
-                        <td>${product.name}</td>
-                        <td style="color: #ef4444; font-weight: bold;">${product.stock}</td>
-                        <td>${product.minStock}</td>
-                        <td><button class="action-btn" style="background: #16A34A; color: white;" onclick="closeModal(); showAdjustStock('${doc.id}')">Reabastecer</button></td>
-                    </tr>
-                `;
-            }
+            alertContent += `
+                <tr>
+                    <td>${product.name}</td>
+                    <td style="color: #ef4444; font-weight: bold;">${product.stock}</td>
+                    <td>${product.minStock}</td>
+                    <td><button class="action-btn" style="background: #16A34A; color: white;" onclick="closeModal(); showAdjustStock('${doc.id}')">Reabastecer</button></td>
+                </tr>
+            `;
         });
         
         alertContent += '</tbody></table>';
@@ -3704,11 +3708,23 @@ async function checkExpiringProducts() {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     
-    const expiringProducts = await db.collection('products')
-        .where('trackExpiry', '==', true)
-        .where('expiryDate', '<=', thirtyDaysFromNow)
+    // Simplified query to avoid Firebase index requirements
+    const allProducts = await db.collection('products')
         .where('stock', '>', 0)
         .get();
+    
+    // Filter in memory
+    const expiringProducts = {
+        docs: allProducts.docs.filter(doc => {
+            const product = doc.data();
+            return product.trackExpiry === true && 
+                   product.expiryDate && 
+                   product.expiryDate.toDate() <= thirtyDaysFromNow;
+        }),
+        forEach: function(callback) {
+            this.docs.forEach(callback);
+        }
+    };
     
     const alerts = [];
     expiringProducts.forEach(doc => {

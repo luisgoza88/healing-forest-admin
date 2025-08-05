@@ -170,12 +170,21 @@ async function getServiceAvailability(serviceId, date) {
         endOfDay.setHours(23, 59, 59, 999);
         
         // Get all bookings for this service on this date
-        const bookingsSnapshot = await db.collection('appointments')
+        // Simplified query to avoid Firebase index requirements
+        const allBookingsSnapshot = await db.collection('appointments')
             .where('serviceId', '==', serviceId)
-            .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
-            .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
-            .where('status', 'in', ['pendiente', 'confirmado'])
             .get();
+        
+        // Filter in memory to avoid complex index
+        const bookingsSnapshot = {
+            docs: allBookingsSnapshot.docs.filter(doc => {
+                const booking = doc.data();
+                const bookingDate = booking.date.toDate();
+                return bookingDate >= startOfDay && 
+                       bookingDate <= endOfDay && 
+                       ['pendiente', 'confirmado'].includes(booking.status);
+            })
+        };
         
         // Get the schedule template
         const scheduleDoc = await db.collection('service_schedules').doc(serviceId).get();
@@ -270,12 +279,21 @@ async function validateBooking(serviceId, date, time, patientId) {
         }
         
         // Check if patient already has a booking at this time
-        const existingBooking = await db.collection('appointments')
+        // Simplified query to avoid Firebase index requirements
+        const allPatientBookings = await db.collection('appointments')
             .where('patientId', '==', patientId)
-            .where('date', '==', firebase.firestore.Timestamp.fromDate(date))
-            .where('time', '==', time)
-            .where('status', 'in', ['pendiente', 'confirmado'])
             .get();
+        
+        // Filter in memory
+        const existingBooking = {
+            empty: !allPatientBookings.docs.some(doc => {
+                const booking = doc.data();
+                const bookingDate = booking.date.toDate();
+                return bookingDate.toDateString() === date.toDateString() &&
+                       booking.time === time &&
+                       ['pendiente', 'confirmado'].includes(booking.status);
+            })
+        };
         
         if (!existingBooking.empty) {
             return {
@@ -391,16 +409,34 @@ async function checkWaitingList(serviceId, date, time) {
         endOfDay.setHours(23, 59, 59, 999);
         
         // Get waiting list for this slot
-        const waitingSnapshot = await db.collection('waitlist')
+        // Simplified query to avoid Firebase index requirements
+        const allWaitingSnapshot = await db.collection('waitlist')
             .where('serviceId', '==', serviceId)
-            .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
-            .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
-            .where('time', '==', time)
             .where('status', '==', 'waiting')
-            .orderBy('priority', 'asc')
-            .orderBy('createdAt', 'asc')
-            .limit(1)
             .get();
+        
+        // Filter and sort in memory
+        const waitingDocs = allWaitingSnapshot.docs
+            .filter(doc => {
+                const waiting = doc.data();
+                const waitingDate = waiting.date.toDate();
+                return waitingDate >= startOfDay && 
+                       waitingDate <= endOfDay && 
+                       waiting.time === time;
+            })
+            .sort((a, b) => {
+                const aData = a.data();
+                const bData = b.data();
+                if (aData.priority !== bData.priority) {
+                    return aData.priority - bData.priority;
+                }
+                return aData.createdAt.seconds - bData.createdAt.seconds;
+            });
+        
+        const waitingSnapshot = {
+            empty: waitingDocs.length === 0,
+            docs: waitingDocs.slice(0, 1)
+        };
         
         if (!waitingSnapshot.empty) {
             const waitingDoc = waitingSnapshot.docs[0];
@@ -496,11 +532,21 @@ async function getServiceStatistics(serviceId, startDate, endDate) {
         };
         
         // Get all appointments in date range
-        const appointmentsSnapshot = await db.collection('appointments')
+        // Simplified query to avoid Firebase index requirements
+        const allAppointmentsSnapshot = await db.collection('appointments')
             .where('serviceId', '==', serviceId)
-            .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
-            .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
             .get();
+        
+        // Filter in memory
+        const appointmentsSnapshot = {
+            size: 0,
+            docs: allAppointmentsSnapshot.docs.filter(doc => {
+                const appointment = doc.data();
+                const appointmentDate = appointment.date.toDate();
+                return appointmentDate >= startDate && appointmentDate <= endDate;
+            })
+        };
+        appointmentsSnapshot.size = appointmentsSnapshot.docs.length;
         
         stats.totalBookings = appointmentsSnapshot.size;
         
