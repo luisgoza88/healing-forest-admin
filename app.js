@@ -1152,6 +1152,18 @@ async function markAsPaid(paymentId) {
                 status: 'pagado',
                 paidAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            
+            // Check if Siigo is configured for automatic invoicing
+            const siigoConfig = localStorage.getItem('siigoConfig');
+            if (siigoConfig) {
+                const config = JSON.parse(siigoConfig);
+                if (config.autoInvoice !== false) {
+                    if (confirm('¿Generar factura electrónica automáticamente?')) {
+                        await generateInvoiceFromPayment(paymentId);
+                    }
+                }
+            }
+            
             loadPayments();
         } catch (error) {
             alert('Error al actualizar pago: ' + error.message);
@@ -2751,11 +2763,17 @@ function configureSiigo() {
         </form>
     `;
     
-    showModal('Configurar Siigo', content);
+    showModal('Configurar Facturación Electrónica', content);
     
     document.getElementById('siigoConfigForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+        
+        const provider = formData.get('provider');
+        if (!provider) {
+            alert('⚠️ Selecciona un proveedor');
+            return;
+        }
         
         const config = {
             apiKey: formData.get('apiKey'),
