@@ -615,7 +615,7 @@ async function loadServices() {
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name || 'Servicio'}'); return false;">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="window.showServiceCalendar('${doc.id}', '${service.name || 'Servicio'}'); return false;">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -722,7 +722,7 @@ function closeCalendarModal() {
 }
 
 // Show service calendar
-async function showServiceCalendar(serviceId, serviceName) {
+window.showServiceCalendar = async function(serviceId, serviceName) {
     try {
         console.log('Opening calendar for:', serviceId, serviceName);
         
@@ -801,18 +801,26 @@ async function initializeCalendarForService(serviceId, serviceData) {
     
     if (!calendarEl) return;
     
-    // Get appointments for this service
+    // Get appointments for this service (simplified query)
     const appointmentsSnapshot = await db.collection('appointments')
         .where('serviceId', '==', serviceId)
-        .where('date', '>=', new Date())
         .get();
     
     const events = [];
     const slotCounts = {}; // Track bookings per slot
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     appointmentsSnapshot.forEach(doc => {
         const appointment = doc.data();
+        if (!appointment.date) return;
+        
         const date = appointment.date.toDate();
+        
+        // Only show future appointments
+        if (date < today) return;
+        
         const dateStr = date.toISOString().split('T')[0];
         const timeKey = `${dateStr}_${appointment.time || appointment.startTime}`;
         
@@ -823,7 +831,7 @@ async function initializeCalendarForService(serviceId, serviceData) {
         const startTime = appointment.time || appointment.startTime || '09:00';
         const [hours, minutes] = startTime.split(':');
         const start = new Date(date);
-        start.setHours(parseInt(hours), parseInt(minutes));
+        start.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         
         const end = new Date(start);
         end.setMinutes(end.getMinutes() + (serviceData.duration || 60));
