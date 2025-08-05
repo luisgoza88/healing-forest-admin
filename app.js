@@ -618,7 +618,7 @@ async function loadServices() {
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="window.serviceCalendar.showServiceCalendar('${doc.id}')">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name}')">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -722,6 +722,241 @@ function closeCalendarModal() {
         window.currentCalendarInstance.destroy();
         window.currentCalendarInstance = null;
     }
+}
+
+// Show service calendar
+async function showServiceCalendar(serviceId, serviceName) {
+    const modal = document.getElementById('calendarModal');
+    const modalTitle = document.getElementById('calendarModalTitle');
+    const modalBody = document.getElementById('calendarModalBody');
+    
+    // Set title
+    modalTitle.textContent = `Calendario de ${serviceName}`;
+    
+    // Get service data
+    const serviceDoc = await db.collection('services').doc(serviceId).get();
+    const service = serviceDoc.data();
+    
+    // Create calendar content
+    modalBody.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <p><strong>Capacidad:</strong> ${service.maxParticipants || 1} ${service.isGroupService ? 'participantes' : 'persona'}</p>
+                    <p><strong>Duración:</strong> ${service.duration || 60} minutos</p>
+                </div>
+                <div>
+                    <button class="btn" style="background: #10B981;" onclick="addServiceSlot('${serviceId}')">
+                        + Agregar Horario
+                    </button>
+                    <button class="btn" style="background: #6B7280; margin-left: 10px;" onclick="configureServiceSchedule('${serviceId}')">
+                        ⚙️ Configurar Horarios
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <span style="display: flex; align-items: center;">
+                <span class="availability-dot available"></span> Disponible
+            </span>
+            <span style="display: flex; align-items: center;">
+                <span class="availability-dot almost-full"></span> Casi lleno
+            </span>
+            <span style="display: flex; align-items: center;">
+                <span class="availability-dot full"></span> Completo
+            </span>
+        </div>
+        
+        <div id="serviceCalendarContainer" style="background: white; padding: 20px; border-radius: 8px; min-height: 600px;"></div>
+    `;
+    
+    // Show modal
+    modal.classList.add('active');
+    
+    // Initialize calendar after modal is shown
+    setTimeout(() => {
+        initializeCalendarForService(serviceId, service);
+    }, 100);
+}
+
+// Initialize calendar for a specific service
+async function initializeCalendarForService(serviceId, serviceData) {
+    const calendarEl = document.getElementById('serviceCalendarContainer');
+    
+    if (!calendarEl) return;
+    
+    // Get appointments for this service
+    const appointmentsSnapshot = await db.collection('appointments')
+        .where('serviceId', '==', serviceId)
+        .where('date', '>=', new Date())
+        .get();
+    
+    const events = [];
+    const slotCounts = {}; // Track bookings per slot
+    
+    appointmentsSnapshot.forEach(doc => {
+        const appointment = doc.data();
+        const date = appointment.date.toDate();
+        const dateStr = date.toISOString().split('T')[0];
+        const timeKey = `${dateStr}_${appointment.time || appointment.startTime}`;
+        
+        // Count bookings per slot
+        slotCounts[timeKey] = (slotCounts[timeKey] || 0) + 1;
+        
+        // Create event
+        const startTime = appointment.time || appointment.startTime || '09:00';
+        const [hours, minutes] = startTime.split(':');
+        const start = new Date(date);
+        start.setHours(parseInt(hours), parseInt(minutes));
+        
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + (serviceData.duration || 60));
+        
+        events.push({
+            id: doc.id,
+            title: appointment.patientName || appointment.userName || 'Reservado',
+            start: start,
+            end: end,
+            extendedProps: {
+                appointmentId: doc.id,
+                patientId: appointment.patientId || appointment.userId,
+                status: appointment.status,
+                phone: appointment.userPhone
+            }
+        });
+    });
+    
+    // Create calendar
+    window.currentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridWeek',
+        locale: 'es',
+        height: 600,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        slotMinTime: '06:00:00',
+        slotMaxTime: '21:00:00',
+        slotDuration: '00:30:00',
+        expandRows: true,
+        events: events,
+        
+        eventClick: function(info) {
+            showAppointmentDetails(info.event.extendedProps.appointmentId);
+        },
+        
+        dateClick: function(info) {
+            // Create new appointment slot
+            createServiceSlot(serviceId, info.date);
+        },
+        
+        eventDidMount: function(info) {
+            // Color based on capacity
+            const dateStr = info.event.start.toISOString().split('T')[0];
+            const timeStr = info.event.start.toTimeString().slice(0, 5);
+            const timeKey = `${dateStr}_${timeStr}`;
+            const booked = slotCounts[timeKey] || 0;
+            const capacity = serviceData.maxParticipants || 1;
+            
+            if (booked >= capacity) {
+                info.el.style.backgroundColor = '#DC2626'; // Red - full
+            } else if (booked >= capacity * 0.8) {
+                info.el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
+            } else {
+                info.el.style.backgroundColor = '#16A34A'; // Green - available
+            }
+            
+            // Add tooltip
+            info.el.title = `${booked}/${capacity} reservados`;
+        }
+    });
+    
+    window.currentCalendarInstance.render();
+}
+
+// Create new service slot
+function createServiceSlot(serviceId, date) {
+    const timeStr = prompt('Ingrese la hora de inicio (formato 24h, ej: 09:00):');
+    if (!timeStr) return;
+    
+    // Here you would create the slot in Firestore
+    alert(`Crear horario para ${date.toLocaleDateString()} a las ${timeStr}`);
+    // Reload calendar after creating
+}
+
+// Add service slot
+function addServiceSlot(serviceId) {
+    alert('Función para agregar horario recurrente - En desarrollo');
+}
+
+// Configure service schedule
+function configureServiceSchedule(serviceId) {
+    alert('Función para configurar horarios semanales - En desarrollo');
+}
+
+// Update existing services with capacity info
+async function updateServicesWithCapacity() {
+    console.log('Actualizando servicios con información de capacidad...');
+    
+    const capacityMap = {
+        'yoga': { maxParticipants: 16, isGroupService: true },
+        'masaje': { maxParticipants: 1, isGroupService: false },
+        'massage': { maxParticipants: 1, isGroupService: false },
+        'sauna': { maxParticipants: 1, isGroupService: false },
+        'camara': { maxParticipants: 1, isGroupService: false },
+        'hiperbarica': { maxParticipants: 1, isGroupService: false },
+        'hyperbaric': { maxParticipants: 1, isGroupService: false },
+        'suero': { maxParticipants: 5, isGroupService: true },
+        'iv': { maxParticipants: 5, isGroupService: true },
+        'therapy': { maxParticipants: 5, isGroupService: true }
+    };
+    
+    try {
+        const snapshot = await db.collection('services').get();
+        const batch = db.batch();
+        let updateCount = 0;
+        
+        snapshot.forEach(doc => {
+            const service = doc.data();
+            const serviceName = (service.name || '').toLowerCase();
+            
+            // Find matching capacity config
+            let capacityConfig = null;
+            for (const [key, config] of Object.entries(capacityMap)) {
+                if (serviceName.includes(key)) {
+                    capacityConfig = config;
+                    break;
+                }
+            }
+            
+            if (capacityConfig && !service.hasCapacityManagement) {
+                batch.update(doc.ref, {
+                    ...capacityConfig,
+                    hasCapacityManagement: true,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                updateCount++;
+                console.log(`Actualizando ${service.name} con capacidad ${capacityConfig.maxParticipants}`);
+            }
+        });
+        
+        if (updateCount > 0) {
+            await batch.commit();
+            console.log(`✅ ${updateCount} servicios actualizados con información de capacidad`);
+            loadServices(); // Reload services
+        } else {
+            console.log('No hay servicios para actualizar');
+        }
+    } catch (error) {
+        console.error('Error actualizando servicios:', error);
+    }
+}
+
+// Auto-update services on load if needed
+if (window.location.hash === '#update-capacity') {
+    updateServicesWithCapacity();
 }
 
 // Add Staff Modal
