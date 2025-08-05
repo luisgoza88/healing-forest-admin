@@ -347,6 +347,23 @@ async function loadAppointments() {
         const tbody = document.querySelector('#appointmentsTable tbody');
         tbody.innerHTML = '';
         
+        // Add search box and date filter if not exists
+        const tableView = document.getElementById('tableView');
+        if (!tableView.querySelector('.search-input')) {
+            const filterContainer = document.createElement('div');
+            filterContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center;';
+            
+            const searchInput = createSearchInput('appointmentsTable', 'Buscar citas...');
+            searchInput.classList.add('search-input');
+            
+            const dateFilter = createDateFilter('appointmentsTable', 0); // Date is in column 0
+            
+            filterContainer.appendChild(searchInput);
+            filterContainer.appendChild(dateFilter);
+            
+            tableView.insertBefore(filterContainer, document.getElementById('appointmentsTable'));
+        }
+        
         if (snapshot.empty) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay citas registradas</td></tr>';
         } else {
@@ -360,6 +377,9 @@ async function loadAppointments() {
                 const staffName = appointment.staffName || appointment.professionalName || 'N/A';
                 const status = appointment.status || 'pendiente';
                 
+                // Get patient phone for WhatsApp
+                const patientPhone = appointment.patientPhone || '';
+                
                 const row = `
                     <tr>
                         <td>${date}</td>
@@ -369,6 +389,7 @@ async function loadAppointments() {
                         <td>${staffName}</td>
                         <td><span class="badge ${status}">${status}</span></td>
                         <td>
+                            ${patientPhone ? `<button class="action-btn" style="background: #25d366; color: white;" onclick="sendWhatsApp('${patientPhone}', 'Hola ${patientName}, te recordamos tu cita de ${service} el ${date} a las ${time}')">WhatsApp</button>` : ''}
                             <button class="action-btn edit-btn" onclick="editAppointment('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteAppointment('${doc.id}')">Eliminar</button>
                         </td>
@@ -389,6 +410,15 @@ async function loadStaff() {
         
         const tbody = document.querySelector('#staffTable tbody');
         tbody.innerHTML = '';
+        
+        // Add search box if not exists
+        const staffSection = document.getElementById('staff');
+        if (!staffSection.querySelector('.search-input')) {
+            const searchInput = createSearchInput('staffTable', 'Buscar personal...');
+            searchInput.classList.add('search-input');
+            const table = document.getElementById('staffTable');
+            table.parentNode.insertBefore(searchInput, table);
+        }
         
         if (snapshot.empty) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay personal registrado</td></tr>';
@@ -429,6 +459,15 @@ async function loadPatients() {
         const tbody = document.querySelector('#patientsTable tbody');
         tbody.innerHTML = '';
         
+        // Add search box if not exists
+        const patientsSection = document.getElementById('patients');
+        if (!patientsSection.querySelector('.search-input')) {
+            const searchInput = createSearchInput('patientsTable', 'Buscar pacientes por nombre, email o teléfono...');
+            searchInput.classList.add('search-input');
+            const table = document.getElementById('patientsTable');
+            table.parentNode.insertBefore(searchInput, table);
+        }
+        
         if (snapshot.empty) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay pacientes registrados</td></tr>';
         } else {
@@ -436,6 +475,7 @@ async function loadPatients() {
                 const patient = doc.data();
                 const birthDate = patient.birthDate || 'N/A';
                 const createdAt = patient.createdAt ? new Date(patient.createdAt.seconds * 1000).toLocaleDateString() : 'N/A';
+                const phone = patient.phone || '';
                 const row = `
                     <tr>
                         <td>${patient.name || 'N/A'}</td>
@@ -444,6 +484,7 @@ async function loadPatients() {
                         <td>${birthDate}</td>
                         <td>${createdAt}</td>
                         <td>
+                            ${phone ? `<button class="action-btn" style="background: #25d366; color: white;" onclick="sendWhatsApp('${phone}', 'Hola ${patient.name || 'paciente'}')">WhatsApp</button>` : ''}
                             <button class="action-btn edit-btn" onclick="viewPatient('${doc.id}')">Ver</button>
                         </td>
                     </tr>
@@ -463,6 +504,15 @@ async function loadServices() {
         
         const tbody = document.querySelector('#servicesTable tbody');
         tbody.innerHTML = '';
+        
+        // Add search box if not exists
+        const servicesSection = document.getElementById('services');
+        if (!servicesSection.querySelector('.search-input')) {
+            const searchInput = createSearchInput('servicesTable', 'Buscar servicios...');
+            searchInput.classList.add('search-input');
+            const table = document.getElementById('servicesTable');
+            table.parentNode.insertBefore(searchInput, table);
+        }
         
         if (snapshot.empty) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay servicios registrados</td></tr>';
@@ -785,6 +835,7 @@ async function showAddAppointment(preselectedDate = null) {
             const appointmentData = {
                 patientId: formData.get('patientId'),
                 patientName: patientDoc.data().name || patientDoc.data().email,
+                patientPhone: patientDoc.data().phone || '',
                 staffId: formData.get('staffId'),
                 staffName: staffDoc.data().name,
                 serviceId: formData.get('serviceId'),
@@ -851,7 +902,8 @@ async function viewAppointmentDetails(appointmentId) {
                 <p><strong>Estado:</strong> <span class="badge ${appointment.status}">${appointment.status || 'pendiente'}</span></p>
                 ${appointment.notes ? `<p><strong>Notas:</strong> ${appointment.notes}</p>` : ''}
             </div>
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                ${appointment.patientPhone ? `<button class="btn" style="background: #25d366;" onclick="sendWhatsApp('${appointment.patientPhone}', 'Hola ${appointment.patientName}, sobre tu cita de ${appointment.service}...')">WhatsApp</button>` : ''}
                 <button class="btn" style="background: #ffc107; color: #000;" onclick="editAppointment('${appointmentId}')">Editar</button>
                 <button class="btn" style="background: #dc3545;" onclick="deleteAppointment('${appointmentId}'); closeModal();">Eliminar</button>
             </div>
@@ -878,6 +930,24 @@ async function loadPayments() {
             .orderBy('date', 'desc')
             .limit(50)
             .get();
+        
+        // Add search box and date filter if not exists
+        const paymentsSection = document.getElementById('payments');
+        const paymentsTable = document.getElementById('paymentsTable');
+        if (!paymentsSection.querySelector('.search-input')) {
+            const filterContainer = document.createElement('div');
+            filterContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; align-items: center;';
+            
+            const searchInput = createSearchInput('paymentsTable', 'Buscar pagos...');
+            searchInput.classList.add('search-input');
+            
+            const dateFilter = createDateFilter('paymentsTable', 0); // Date is in column 0
+            
+            filterContainer.appendChild(searchInput);
+            filterContainer.appendChild(dateFilter);
+            
+            paymentsTable.parentNode.insertBefore(filterContainer, paymentsTable);
+        }
         
         // Calculate stats
         const today = new Date();
@@ -1299,6 +1369,44 @@ function downloadReport() {
     doc.save(`reporte-${currentReportData.type}-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+// SEARCH FUNCTIONALITY
+function searchTable(tableId, searchTerm) {
+    const table = document.getElementById(tableId);
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = tbody.getElementsByTagName('tr');
+    
+    searchTerm = searchTerm.toLowerCase();
+    
+    for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        let found = false;
+        
+        for (let j = 0; j < cells.length; j++) {
+            const cellText = cells[j].textContent || cells[j].innerText;
+            if (cellText.toLowerCase().indexOf(searchTerm) > -1) {
+                found = true;
+                break;
+            }
+        }
+        
+        rows[i].style.display = found ? '' : 'none';
+    }
+}
+
+// Create search input for a table
+function createSearchInput(tableId, placeholder) {
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = placeholder || 'Buscar...';
+    searchInput.style.cssText = 'padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 300px; margin-bottom: 15px;';
+    
+    searchInput.addEventListener('keyup', function() {
+        searchTable(tableId, this.value);
+    });
+    
+    return searchInput;
+}
+
 // NOTIFICATION FUNCTIONS
 async function loadNotifications() {
     try {
@@ -1375,6 +1483,128 @@ async function testPushNotification() {
     });
     
     loadNotifications();
+}
+
+// WhatsApp function
+function sendWhatsApp(phone, message) {
+    // Clean phone number (remove spaces and special characters)
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Open WhatsApp with pre-filled message
+    window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, '_blank');
+}
+
+// Export to Excel function
+function exportTableToExcel(tableId, filename = 'export') {
+    const table = document.getElementById(tableId);
+    const wb = XLSX.utils.book_new();
+    
+    // Get visible rows only (respecting search filter)
+    const rows = [];
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const trs = tbody.getElementsByTagName('tr');
+    
+    // Add headers
+    const headers = [];
+    const headerRow = table.getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+    const ths = headerRow.getElementsByTagName('th');
+    for (let i = 0; i < ths.length - 1; i++) { // Skip last column (actions)
+        headers.push(ths[i].textContent);
+    }
+    rows.push(headers);
+    
+    // Add data rows
+    for (let i = 0; i < trs.length; i++) {
+        if (trs[i].style.display !== 'none') { // Only visible rows
+            const tds = trs[i].getElementsByTagName('td');
+            const row = [];
+            for (let j = 0; j < tds.length - 1; j++) { // Skip last column (actions)
+                row.push(tds[j].textContent.trim());
+            }
+            if (row.length > 0 && row[0] !== 'No hay') { // Skip empty rows
+                rows.push(row);
+            }
+        }
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    
+    // Generate filename with date
+    const date = new Date().toISOString().split('T')[0];
+    const fullFilename = `${filename}_${date}.xlsx`;
+    
+    XLSX.writeFile(wb, fullFilename);
+}
+
+// Date filter function
+function createDateFilter(tableId, dateColumnIndex) {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: inline-flex; gap: 10px; align-items: center; margin-bottom: 15px; margin-left: 15px;';
+    
+    const label = document.createElement('label');
+    label.textContent = 'Filtrar por fecha: ';
+    label.style.fontWeight = '500';
+    
+    const startDate = document.createElement('input');
+    startDate.type = 'date';
+    startDate.style.cssText = 'padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;';
+    
+    const endDate = document.createElement('input');
+    endDate.type = 'date';
+    endDate.style.cssText = 'padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;';
+    
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Limpiar';
+    clearBtn.style.cssText = 'padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    
+    function filterByDate() {
+        const table = document.getElementById(tableId);
+        const tbody = table.getElementsByTagName('tbody')[0];
+        const rows = tbody.getElementsByTagName('tr');
+        
+        const start = startDate.value ? new Date(startDate.value) : null;
+        const end = endDate.value ? new Date(endDate.value) : null;
+        
+        for (let i = 0; i < rows.length; i++) {
+            const cells = rows[i].getElementsByTagName('td');
+            if (cells.length > dateColumnIndex) {
+                const dateText = cells[dateColumnIndex].textContent;
+                const rowDate = moment(dateText, ['DD/MM/YYYY', 'D/M/YYYY', 'YYYY-MM-DD']).toDate();
+                
+                let show = true;
+                if (start && rowDate < start) show = false;
+                if (end && rowDate > end) show = false;
+                
+                // Also check if row is hidden by search
+                if (rows[i].style.display === 'none' && show) {
+                    show = false;
+                }
+                
+                rows[i].style.display = show ? '' : 'none';
+            }
+        }
+    }
+    
+    startDate.addEventListener('change', filterByDate);
+    endDate.addEventListener('change', filterByDate);
+    
+    clearBtn.addEventListener('click', () => {
+        startDate.value = '';
+        endDate.value = '';
+        filterByDate();
+    });
+    
+    container.appendChild(label);
+    container.appendChild(startDate);
+    container.appendChild(document.createTextNode(' - '));
+    container.appendChild(endDate);
+    container.appendChild(clearBtn);
+    
+    return container;
 }
 
 // Update the appointment creation to send notifications

@@ -518,6 +518,9 @@
                 <div class="section-header">
                     <h2>Gestión de Citas</h2>
                     <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportTableToExcel('appointmentsTable', 'citas')">
+                            📥 Exportar Excel
+                        </button>
                         <button class="add-btn" style="margin-right: 10px;" onclick="toggleCalendarView()">
                             <span id="viewToggleText">Ver Calendario</span>
                         </button>
@@ -557,7 +560,12 @@
             <div class="content-section" id="staff">
                 <div class="section-header">
                     <h2>Gestión de Personal</h2>
-                    <button class="add-btn" onclick="showAddStaff()">+ Nuevo Personal</button>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportTableToExcel('staffTable', 'personal')">
+                            📥 Exportar Excel
+                        </button>
+                        <button class="add-btn" onclick="showAddStaff()">+ Nuevo Personal</button>
+                    </div>
                 </div>
                 <table id="staffTable">
                     <thead>
@@ -583,6 +591,11 @@
             <div class="content-section" id="patients">
                 <div class="section-header">
                     <h2>Gestión de Pacientes</h2>
+                    <div>
+                        <button class="add-btn" style="background: #0ea5e9;" onclick="exportTableToExcel('patientsTable', 'pacientes')">
+                            📥 Exportar Excel
+                        </button>
+                    </div>
                 </div>
                 <table id="patientsTable">
                     <thead>
@@ -607,7 +620,12 @@
             <div class="content-section" id="services">
                 <div class="section-header">
                     <h2>Gestión de Servicios</h2>
-                    <button class="add-btn" onclick="showAddService()">+ Nuevo Servicio</button>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportTableToExcel('servicesTable', 'servicios')">
+                            📥 Exportar Excel
+                        </button>
+                        <button class="add-btn" onclick="showAddService()">+ Nuevo Servicio</button>
+                    </div>
                 </div>
                 <table id="servicesTable">
                     <thead>
@@ -632,7 +650,12 @@
             <div class="content-section" id="payments">
                 <div class="section-header">
                     <h2>Gestión de Pagos</h2>
-                    <button class="add-btn" onclick="showAddPayment()">+ Registrar Pago</button>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportTableToExcel('paymentsTable', 'pagos')">
+                            📥 Exportar Excel
+                        </button>
+                        <button class="add-btn" onclick="showAddPayment()">+ Registrar Pago</button>
+                    </div>
                 </div>
                 <div class="stats-grid" style="margin-bottom: 30px;">
                     <div class="stat-card">
@@ -806,6 +829,13 @@
     
     <!-- Stripe para pagos -->
     <script src="https://js.stripe.com/v3/"></script>
+    
+    <!-- SheetJS para exportar Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Moment.js para manejo de fechas -->
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/locale/es.js"></script>
     
     <!-- Configuraciones adicionales -->
     <script src="email-config.js"></script>
