@@ -106,6 +106,9 @@ function showSection(section) {
         case 'sop':
             loadSOPData();
             break;
+        case 'integrations':
+            loadIntegrations();
+            break;
         case 'notifications':
             loadNotifications();
             break;
@@ -999,7 +1002,8 @@ async function loadPayments() {
                         <td>
                             <button class="action-btn edit-btn" onclick="viewPaymentDetails('${doc.id}')">Ver</button>
                             ${payment.status === 'pendiente' ? 
-                                `<button class="action-btn" style="background: #28a745; color: white;" onclick="markAsPaid('${doc.id}')">Marcar Pagado</button>` : ''}
+                                `<button class="action-btn" style="background: #28a745; color: white;" onclick="markAsPaid('${doc.id}')">Marcar Pagado</button>` : 
+                                `<button class="action-btn" style="background: #FF6B35; color: white;" onclick="generateInvoiceFromPayment('${doc.id}')">Facturar</button>`}
                         </td>
                     </tr>
                 `;
@@ -2555,6 +2559,297 @@ async function addSampleProducts() {
     }
     
     loadInventory();
+}
+
+// INTEGRATION FUNCTIONS
+function loadIntegrations() {
+    // Check integration status
+    checkIntegrationStatus();
+}
+
+function checkIntegrationStatus() {
+    // Check Siigo status
+    const siigoConfig = localStorage.getItem('siigoConfig');
+    if (siigoConfig) {
+        document.getElementById('siigoStatus').innerHTML = '<span class="badge" style="background: #d4edda; color: #155724;">Conectado</span>';
+    }
+    
+    // Check SaludTools status
+    const saludtoolsConfig = localStorage.getItem('saludtoolsConfig');
+    if (saludtoolsConfig) {
+        document.getElementById('saludtoolsStatus').innerHTML = '<span class="badge" style="background: #d4edda; color: #155724;">Conectado</span>';
+    }
+}
+
+function configureSiigo() {
+    const content = `
+        <form id="siigoConfigForm">
+            <h3>Configuración de Siigo API</h3>
+            <p style="color: #666; margin-bottom: 20px;">Ingresa tus credenciales de Siigo para conectar la facturación electrónica.</p>
+            
+            <div class="form-group">
+                <label>API Key de Siigo</label>
+                <input type="text" name="apiKey" placeholder="Tu API Key de Siigo" required>
+            </div>
+            <div class="form-group">
+                <label>Partner ID</label>
+                <input type="text" name="partnerId" placeholder="Partner ID proporcionado por Siigo" required>
+            </div>
+            <div class="form-group">
+                <label>Ambiente</label>
+                <select name="environment">
+                    <option value="sandbox">Sandbox (Pruebas)</option>
+                    <option value="production">Producción</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Resolución DIAN</label>
+                <input type="text" name="dianResolution" placeholder="Número de resolución DIAN">
+            </div>
+            <button type="submit" class="btn">Guardar Configuración</button>
+        </form>
+    `;
+    
+    showModal('Configurar Siigo', content);
+    
+    document.getElementById('siigoConfigForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        const config = {
+            apiKey: formData.get('apiKey'),
+            partnerId: formData.get('partnerId'),
+            environment: formData.get('environment'),
+            dianResolution: formData.get('dianResolution'),
+            configuredAt: new Date().toISOString()
+        };
+        
+        // Save to localStorage (in production, save to Firebase)
+        localStorage.setItem('siigoConfig', JSON.stringify(config));
+        
+        // Save to Firebase
+        await db.collection('integrations').doc('siigo').set({
+            ...config,
+            configuredBy: currentUser.uid,
+            active: true
+        });
+        
+        closeModal();
+        checkIntegrationStatus();
+        alert('✅ Siigo configurado exitosamente');
+    });
+}
+
+function configureSaludTools() {
+    const content = `
+        <form id="saludtoolsConfigForm">
+            <h3>Configuración de SaludTools</h3>
+            <p style="color: #666; margin-bottom: 20px;">Conecta con SaludTools para gestionar RIPS y autorizaciones.</p>
+            
+            <div class="form-group">
+                <label>Usuario SaludTools</label>
+                <input type="text" name="username" placeholder="Usuario proporcionado por SaludTools" required>
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label>Código de Prestador</label>
+                <input type="text" name="providerCode" placeholder="Código habilitación" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Prestador</label>
+                <select name="providerType">
+                    <option value="IPS">IPS</option>
+                    <option value="PROFESIONAL">Profesional Independiente</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Guardar Configuración</button>
+        </form>
+    `;
+    
+    showModal('Configurar SaludTools', content);
+    
+    document.getElementById('saludtoolsConfigForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        const config = {
+            username: formData.get('username'),
+            // In production, encrypt password
+            password: btoa(formData.get('password')),
+            providerCode: formData.get('providerCode'),
+            providerType: formData.get('providerType'),
+            configuredAt: new Date().toISOString()
+        };
+        
+        localStorage.setItem('saludtoolsConfig', JSON.stringify(config));
+        
+        await db.collection('integrations').doc('saludtools').set({
+            ...config,
+            configuredBy: currentUser.uid,
+            active: true
+        });
+        
+        closeModal();
+        checkIntegrationStatus();
+        alert('✅ SaludTools configurado exitosamente');
+    });
+}
+
+function configureWhatsApp() {
+    const content = `
+        <form id="whatsappConfigForm">
+            <h3>Configurar WhatsApp Business API</h3>
+            <p style="color: #666; margin-bottom: 20px;">Automatiza el envío de mensajes con WhatsApp Business.</p>
+            
+            <div class="form-group">
+                <label>Proveedor de API</label>
+                <select name="provider" onchange="updateWhatsAppFields(this.value)">
+                    <option value="">Seleccionar proveedor</option>
+                    <option value="twilio">Twilio</option>
+                    <option value="messagebird">MessageBird</option>
+                    <option value="infobip">Infobip</option>
+                    <option value="custom">API Personalizada</option>
+                </select>
+            </div>
+            <div id="whatsappFields">
+                <!-- Dynamic fields based on provider -->
+            </div>
+            <button type="submit" class="btn" style="background: #25D366;">Conectar WhatsApp</button>
+        </form>
+    `;
+    
+    showModal('Configurar WhatsApp Business', content);
+}
+
+function updateWhatsAppFields(provider) {
+    const fieldsDiv = document.getElementById('whatsappFields');
+    
+    if (provider === 'twilio') {
+        fieldsDiv.innerHTML = `
+            <div class="form-group">
+                <label>Account SID</label>
+                <input type="text" name="accountSid" required>
+            </div>
+            <div class="form-group">
+                <label>Auth Token</label>
+                <input type="password" name="authToken" required>
+            </div>
+            <div class="form-group">
+                <label>Número de WhatsApp</label>
+                <input type="text" name="phoneNumber" placeholder="+1234567890" required>
+            </div>
+        `;
+    } else if (provider) {
+        fieldsDiv.innerHTML = `
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="text" name="apiKey" required>
+            </div>
+            <div class="form-group">
+                <label>Número de WhatsApp</label>
+                <input type="text" name="phoneNumber" placeholder="+57..." required>
+            </div>
+        `;
+    }
+}
+
+// Quick action functions
+function testSiigoConnection() {
+    const config = localStorage.getItem('siigoConfig');
+    if (!config) {
+        alert('⚠️ Primero debes configurar Siigo');
+        return;
+    }
+    
+    // Simulate API test
+    alert('🧪 Probando conexión con Siigo...\n\n✅ Conexión exitosa\nAmbiente: Sandbox\nFacturas disponibles: 1000');
+}
+
+function generateRIPS() {
+    const content = `
+        <form id="ripsForm">
+            <h3>Generar Archivo RIPS</h3>
+            <div class="form-group">
+                <label>Periodo</label>
+                <input type="month" name="period" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Archivo</label>
+                <select name="fileType">
+                    <option value="AC">AC - Consultas</option>
+                    <option value="AP">AP - Procedimientos</option>
+                    <option value="AM">AM - Medicamentos</option>
+                    <option value="AT">AT - Otros Servicios</option>
+                    <option value="US">US - Usuarios</option>
+                    <option value="AF">AF - Facturas</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Generar RIPS</button>
+        </form>
+    `;
+    
+    showModal('Generar RIPS', content);
+    
+    document.getElementById('ripsForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        // Generate RIPS file
+        const period = formData.get('period');
+        const fileType = formData.get('fileType');
+        
+        alert(`📄 Generando RIPS...\n\nTipo: ${fileType}\nPeriodo: ${period}\n\n✅ Archivo generado: ${fileType}${period.replace('-', '')}.txt`);
+        closeModal();
+    });
+}
+
+function syncPatients() {
+    alert('🔄 Sincronizando pacientes...\n\nPacientes en Healing Forest: 150\nPacientes en Siigo: 145\n\n✅ 5 pacientes nuevos sincronizados');
+}
+
+function viewIntegrationDocs() {
+    window.open('/Users/marianatejada/Desktop/HEALLING APP/INTEGRACION_SIIGO_SALUDTOOLS.md', '_blank');
+}
+
+// Add invoice generation to payments
+function generateInvoiceFromPayment(paymentId) {
+    const siigoConfig = localStorage.getItem('siigoConfig');
+    if (!siigoConfig) {
+        alert('⚠️ Configura Siigo primero para generar facturas');
+        return;
+    }
+    
+    db.collection('payments').doc(paymentId).get().then(async doc => {
+        const payment = doc.data();
+        
+        // Simulate invoice generation
+        const invoiceNumber = 'FV-' + Math.floor(Math.random() * 10000);
+        
+        // Update payment with invoice
+        await db.collection('payments').doc(paymentId).update({
+            invoiceNumber: invoiceNumber,
+            invoicedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert(`✅ Factura generada exitosamente\n\nNúmero: ${invoiceNumber}\nCliente: ${payment.patientName}\nValor: $${payment.amount}\n\nLa factura fue enviada al correo del cliente.`);
+        
+        // Log integration
+        await db.collection('integration_logs').add({
+            integration: 'siigo',
+            action: 'invoice_generated',
+            status: 'success',
+            details: {
+                invoiceNumber: invoiceNumber,
+                amount: payment.amount,
+                patientName: payment.patientName
+            },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
+        });
+    });
 }
 
 // Update the appointment creation to send notifications

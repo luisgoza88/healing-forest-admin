@@ -488,6 +488,7 @@
                 <a class="nav-item" data-section="payments">Pagos</a>
                 <a class="nav-item" data-section="reports">Reportes</a>
                 <a class="nav-item" data-section="sop">S&OP Planning</a>
+                <a class="nav-item" data-section="integrations">Integraciones</a>
                 <a class="nav-item" data-section="notifications">Notificaciones</a>
                 <a class="nav-item" data-section="settings">Configuración</a>
             </nav>
@@ -845,6 +846,110 @@
                     <h3>Vista Previa del Reporte</h3>
                     <div id="reportContent"></div>
                     <button class="btn" onclick="downloadReport()" style="margin-top: 20px;">📥 Descargar PDF</button>
+                </div>
+            </div>
+            
+            <!-- Integrations Section -->
+            <div class="content-section" id="integrations">
+                <div class="section-header">
+                    <h2>Integraciones con Sistemas Externos</h2>
+                </div>
+                
+                <!-- Integration Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <!-- Siigo Integration -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="width: 50px; height: 50px; background: #FF6B35; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                <span style="font-size: 24px; color: white;">S</span>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0;">Siigo</h3>
+                                <small style="color: #666;">Facturación Electrónica</small>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin-bottom: 15px;">Genera facturas electrónicas válidas ante la DIAN directamente desde el panel.</p>
+                        <div id="siigoStatus" style="margin-bottom: 15px;">
+                            <span class="badge" style="background: #fbbf24; color: #000;">No Configurado</span>
+                        </div>
+                        <button class="btn" style="width: 100%;" onclick="configureSiigo()">Configurar Siigo</button>
+                    </div>
+                    
+                    <!-- SaludTools Integration -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="width: 50px; height: 50px; background: #0EA5E9; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                <span style="font-size: 24px; color: white;">+</span>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0;">SaludTools</h3>
+                                <small style="color: #666;">Gestión de Salud</small>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin-bottom: 15px;">Maneja RIPS, autorizaciones de EPS y cumplimiento normativo de salud.</p>
+                        <div id="saludtoolsStatus" style="margin-bottom: 15px;">
+                            <span class="badge" style="background: #fbbf24; color: #000;">No Configurado</span>
+                        </div>
+                        <button class="btn" style="width: 100%;" onclick="configureSaludTools()">Configurar SaludTools</button>
+                    </div>
+                    
+                    <!-- WhatsApp Business Integration -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="width: 50px; height: 50px; background: #25D366; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                <span style="font-size: 24px; color: white;">📱</span>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0;">WhatsApp Business</h3>
+                                <small style="color: #666;">Mensajería Automática</small>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin-bottom: 15px;">Envía recordatorios automáticos y confirmaciones de citas por WhatsApp.</p>
+                        <div id="whatsappStatus" style="margin-bottom: 15px;">
+                            <span class="badge" style="background: #d4edda; color: #155724;">Manual Activo</span>
+                        </div>
+                        <button class="btn" style="width: 100%; background: #25D366;" onclick="configureWhatsApp()">Automatizar WhatsApp</button>
+                    </div>
+                </div>
+                
+                <!-- Integration Logs -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 20px;">Registro de Integraciones</h3>
+                    <table id="integrationLogsTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Integración</th>
+                                <th>Acción</th>
+                                <th>Estado</th>
+                                <th>Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #666;">Aún no hay registros de integración</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                    <h3 style="color: #0369a1; margin-bottom: 15px;">🚀 Acciones Rápidas de Integración</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <button class="btn" style="background: #FF6B35;" onclick="testSiigoConnection()">
+                            🧪 Probar Siigo
+                        </button>
+                        <button class="btn" style="background: #0EA5E9;" onclick="generateRIPS()">
+                            📄 Generar RIPS
+                        </button>
+                        <button class="btn" style="background: #8B5CF6;" onclick="syncPatients()">
+                            🔄 Sincronizar Pacientes
+                        </button>
+                        <button class="btn" style="background: #10B981;" onclick="viewIntegrationDocs()">
+                            📖 Ver Documentación
+                        </button>
+                    </div>
                 </div>
             </div>
             
