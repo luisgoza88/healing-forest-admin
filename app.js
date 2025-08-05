@@ -2070,8 +2070,29 @@ async function loadInventory() {
                     lowStockCount++;
                 }
                 
+                // Check expiry status
+                let expiryStatus = '';
+                let expiryText = 'N/A';
+                if (product.trackExpiry && product.expiryDate) {
+                    const expiryDate = new Date(product.expiryDate.seconds * 1000);
+                    const today = new Date();
+                    const daysToExpiry = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    expiryText = expiryDate.toLocaleDateString();
+                    
+                    if (daysToExpiry < 0) {
+                        expiryStatus = 'expired';
+                        expiryText = `<span style="color: #dc2626; font-weight: bold;">⚠️ Vencido</span>`;
+                    } else if (daysToExpiry <= 30) {
+                        expiryStatus = 'expiring-soon';
+                        expiryText = `<span style="color: #f59e0b;">⏰ ${daysToExpiry} días</span>`;
+                    } else {
+                        expiryText = `<span style="color: #10b981;">✅ ${expiryDate.toLocaleDateString()}</span>`;
+                    }
+                }
+                
                 const row = `
-                    <tr data-category="${product.category || 'otros'}">
+                    <tr data-category="${product.category || 'otros'}" class="${expiryStatus}">
                         <td>${product.code || 'N/A'}</td>
                         <td>${product.name || 'N/A'}</td>
                         <td>${product.category || 'otros'}</td>
@@ -2079,6 +2100,8 @@ async function loadInventory() {
                         <td>${product.minStock || 0}</td>
                         <td>$${(product.price || 0).toFixed(2)}</td>
                         <td>$${stockValue.toFixed(2)}</td>
+                        <td>${product.barcode || 'N/A'}</td>
+                        <td>${expiryText}</td>
                         <td><span class="${stockStatus}">${stockStatusText}</span></td>
                         <td>
                             <button class="action-btn" style="background: #16A34A; color: white;" onclick="showAdjustStock('${doc.id}')">Ajustar</button>
@@ -2867,7 +2890,7 @@ function configureWhatsApp() {
                 <label>Proveedor de API</label>
                 <select name="provider" onchange="updateWhatsAppFields(this.value)">
                     <option value="">Seleccionar proveedor</option>
-                    <option value="twilio">Twilio</option>
+                    <option value="twilio">Twilio (Recomendado)</option>
                     <option value="messagebird">MessageBird</option>
                     <option value="infobip">Infobip</option>
                     <option value="custom">API Personalizada</option>
@@ -2881,6 +2904,29 @@ function configureWhatsApp() {
     `;
     
     showModal('Configurar WhatsApp Business', content);
+    
+    document.getElementById('whatsappConfigForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        try {
+            await saveWhatsAppConfig(formData);
+            closeModal();
+            checkIntegrationStatus();
+            
+            // Update status
+            document.getElementById('whatsappStatus').innerHTML = '<span class="badge" style="background: #d4edda; color: #155724;">Conectado y Automatizado</span>';
+            
+            alert('✅ WhatsApp configurado exitosamente! Revisa tu teléfono para el mensaje de prueba.');
+            
+            // Start automatic reminders if enabled
+            if (formData.get('autoReminders') === 'on') {
+                whatsappWorkflows.setupAppointmentReminders();
+            }
+        } catch (error) {
+            alert('❌ Error al configurar WhatsApp: ' + error.message);
+        }
+    });
 }
 
 function updateBillingFields(provider) {
@@ -2953,17 +2999,34 @@ function updateWhatsAppFields(provider) {
     
     if (provider === 'twilio') {
         fieldsDiv.innerHTML = `
+            <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <strong>💳 Costo Twilio:</strong> $0.0055 USD por mensaje (aprox $22 COP)<br>
+                <strong>🌐 Más confiable:</strong> Funciona en todo el mundo<br>
+                <strong>⏱ Setup:</strong> 30 minutos con cuenta verificada
+            </div>
             <div class="form-group">
                 <label>Account SID</label>
-                <input type="text" name="accountSid" required>
+                <input type="text" name="accountSid" placeholder="ACxxxxxxxxxxxxxx" required>
+                <small style="color: #666;">Encuéntralo en tu dashboard de Twilio</small>
             </div>
             <div class="form-group">
                 <label>Auth Token</label>
                 <input type="password" name="authToken" required>
+                <small style="color: #666;">Token secreto de tu cuenta</small>
             </div>
             <div class="form-group">
                 <label>Número de WhatsApp</label>
-                <input type="text" name="phoneNumber" placeholder="+1234567890" required>
+                <input type="text" name="fromNumber" placeholder="+14155238886" value="+14155238886" required>
+                <small style="color: #666;">Usa +14155238886 para sandbox de pruebas</small>
+            </div>
+            <div class="form-group">
+                <label>Tu número para alertas</label>
+                <input type="text" name="adminPhone" placeholder="+57..." required>
+                <small style="color: #666;">Recibirás alertas de inventario aquí</small>
+            </div>
+            <div class="form-group">
+                <label>¿Activar recordatorios automáticos?</label>
+                <label><input type="checkbox" name="autoReminders" checked> Sí, enviar recordatorios 24h antes</label>
             </div>
         `;
     } else if (provider) {
@@ -2977,6 +3040,42 @@ function updateWhatsAppFields(provider) {
                 <input type="text" name="phoneNumber" placeholder="+57..." required>
             </div>
         `;
+    }
+}
+
+// Save WhatsApp configuration
+async function saveWhatsAppConfig(formData) {
+    const config = {
+        provider: formData.get('provider'),
+        accountSid: formData.get('accountSid'),
+        authToken: formData.get('authToken'),
+        fromNumber: formData.get('fromNumber'),
+        adminPhone: formData.get('adminPhone'),
+        autoReminders: formData.get('autoReminders') === 'on',
+        configuredAt: new Date().toISOString(),
+        configuredBy: currentUser.uid
+    };
+    
+    try {
+        // Test connection
+        const whatsapp = new WhatsAppAutomation(config);
+        
+        // Save to Firebase
+        await db.collection('integrations').doc('whatsapp').set({
+            ...config,
+            active: true
+        });
+        
+        // Send test message
+        await whatsapp.sendMessage(
+            config.adminPhone,
+            '🎉 *WhatsApp configurado exitosamente!*\n\nHealing Forest ahora puede enviar:\n• Recordatorios de citas\n• Confirmaciones de pago\n• Alertas de inventario\n\n🌳 Gracias por automatizar!'
+        );
+        
+        return { success: true };
+    } catch (error) {
+        console.error('WhatsApp config error:', error);
+        throw error;
     }
 }
 
@@ -3074,6 +3173,82 @@ function generateInvoiceFromPayment(paymentId) {
             createdBy: currentUser.uid
         });
     });
+}
+
+// Barcode scanning function
+function scanBarcode() {
+    // For demo purposes, generate a random barcode
+    // In production, this would connect to a barcode scanner or camera
+    const randomBarcode = '750' + Math.floor(Math.random() * 1000000000);
+    document.querySelector('input[name="barcode"]').value = randomBarcode;
+    alert('📧 Código escaneado: ' + randomBarcode);
+}
+
+// Toggle expiry date field
+function toggleExpiryDate(checkbox) {
+    const expiryDateField = document.querySelector('input[name="expiryDate"]');
+    if (checkbox.checked) {
+        expiryDateField.required = true;
+        expiryDateField.disabled = false;
+    } else {
+        expiryDateField.required = false;
+        expiryDateField.disabled = true;
+        expiryDateField.value = '';
+    }
+}
+
+// Check for expiring products
+async function checkExpiringProducts() {
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    
+    const expiringProducts = await db.collection('products')
+        .where('trackExpiry', '==', true)
+        .where('expiryDate', '<=', thirtyDaysFromNow)
+        .where('stock', '>', 0)
+        .get();
+    
+    const alerts = [];
+    expiringProducts.forEach(doc => {
+        const product = doc.data();
+        const expiryDate = new Date(product.expiryDate.seconds * 1000);
+        const daysToExpiry = Math.floor((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        
+        alerts.push({
+            productName: product.name,
+            expiryDate: expiryDate.toLocaleDateString(),
+            daysToExpiry: daysToExpiry,
+            stock: product.stock,
+            id: doc.id
+        });
+    });
+    
+    // Send WhatsApp alerts if configured
+    const whatsappConfig = await getWhatsAppConfig();
+    if (whatsappConfig && alerts.length > 0) {
+        const whatsapp = new WhatsAppAutomation(whatsappConfig);
+        
+        // Send to admin
+        const adminPhone = whatsappConfig.adminPhone || currentUser.phone;
+        if (adminPhone) {
+            const message = `⚠️ *Productos próximos a vencer*\n\n${alerts.map(a => 
+                `• ${a.productName}\n  Vence: ${a.expiryDate} (${a.daysToExpiry} días)\n  Stock: ${a.stock} unidades`
+            ).join('\n\n')}`;
+            
+            await whatsapp.sendMessage(adminPhone, message);
+        }
+    }
+    
+    return alerts;
+}
+
+// Schedule daily expiry check
+if (typeof window !== 'undefined') {
+    // Check on page load
+    setTimeout(checkExpiringProducts, 5000);
+    
+    // Check every 24 hours
+    setInterval(checkExpiringProducts, 24 * 60 * 60 * 1000);
 }
 
 // Update the appointment creation to send notifications
