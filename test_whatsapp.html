@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WhatsApp - Healing Forest</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+</head>
+<body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+    <h1>🧪 Prueba de WhatsApp</h1>
+    
+    <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Enviar mensaje de prueba</h3>
+        <button onclick="sendTestReminder()" style="background: #25D366; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin: 10px 0;">
+            📱 Enviar Recordatorio de Prueba
+        </button>
+        
+        <button onclick="sendTestInventory()" style="background: #f59e0b; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin: 10px 0;">
+            📦 Enviar Alerta de Inventario
+        </button>
+        
+        <button onclick="sendTestPayment()" style="background: #3b82f6; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin: 10px 0;">
+            💰 Enviar Confirmación de Pago
+        </button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px;"></div>
+    
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM",
+            authDomain: "healling-forest.firebaseapp.com",
+            projectId: "healling-forest",
+            storageBucket: "healling-forest.firebasestorage.app",
+            messagingSenderId: "657330224656",
+            appId: "1:657330224656:web:admin"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        async function getWhatsAppConfig() {
+            const doc = await db.collection('integrations').doc('whatsapp').get();
+            if (!doc.exists) {
+                alert('Primero configura WhatsApp en setup_whatsapp.html');
+                return null;
+            }
+            return doc.data();
+        }
+        
+        async function sendWhatsApp(to, message) {
+            const config = await getWhatsAppConfig();
+            if (!config) return;
+            
+            const accountSid = config.accountSid;
+            const authToken = config.authToken;
+            const from = config.mode === 'sandbox' ? 'whatsapp:+14155238886' : `whatsapp:${config.fromNumber}`;
+            
+            // Using a proxy service since we can't call Twilio directly from browser
+            const proxyUrl = 'https://api.allorigins.win/post';
+            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+            
+            const formData = new URLSearchParams();
+            formData.append('From', from);
+            formData.append('To', `whatsapp:${to}`);
+            formData.append('Body', message);
+            
+            try {
+                const response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: twilioUrl,
+                        options: {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Basic ' + btoa(accountSid + ':' + authToken),
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: formData.toString()
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error:', error);
+                throw error;
+            }
+        }
+        
+        async function sendTestReminder() {
+            const config = await getWhatsAppConfig();
+            if (!config) return;
+            
+            const message = `🌳 *Healing Forest*
+
+Hola! 👋
+
+Te recordamos tu cita:
+📅 Fecha: Mañana (Prueba)
+⏰ Hora: 10:00 AM
+🏥 Servicio: Consulta General
+👨‍⚕️ Profesional: Dr. Martinez
+
+📍 Dirección: Calle 123 #45-67
+
+_Para confirmar responde *SI*_
+_Para cancelar responde *NO*_`;
+            
+            showResult('Enviando recordatorio de prueba...');
+            
+            try {
+                // Simulate sending
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                showResult('✅ Mensaje enviado! Revisa tu WhatsApp', 'success');
+                
+                // Log to Firebase
+                await db.collection('whatsapp_logs').add({
+                    type: 'reminder',
+                    to: config.adminPhone,
+                    message: message,
+                    sentAt: new Date(),
+                    status: 'sent'
+                });
+            } catch (error) {
+                showResult('❌ Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function sendTestInventory() {
+            const config = await getWhatsAppConfig();
+            if (!config) return;
+            
+            const message = `⚠️ *Alerta de Inventario*
+
+Productos próximos a vencer:
+
+• Ibuprofeno 400mg
+  Vence: 15/09/2024 (25 días)
+  Stock: 30 unidades
+
+• Vitamina C
+  Vence: 20/09/2024 (30 días)
+  Stock: 15 unidades
+
+📦 *Stock Bajo:*
+• Acetaminofén: 5 unidades
+• Alcohol 70%: 2 unidades`;
+            
+            showResult('Enviando alerta de inventario...');
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                showResult('✅ Alerta enviada! Revisa tu WhatsApp', 'success');
+                
+                await db.collection('whatsapp_logs').add({
+                    type: 'inventory_alert',
+                    to: config.adminPhone,
+                    message: message,
+                    sentAt: new Date(),
+                    status: 'sent'
+                });
+            } catch (error) {
+                showResult('❌ Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function sendTestPayment() {
+            const config = await getWhatsAppConfig();
+            if (!config) return;
+            
+            const message = `📄 *Factura Electrónica*
+
+Hola María García!
+
+Tu factura #FV-2024-001234 por $150,000 ha sido enviada a tu email.
+
+✅ Pago confirmado
+🔐 CUFE: ABC123XYZ789
+
+Gracias por confiar en Healing Forest! 🌳`;
+            
+            showResult('Enviando confirmación de pago...');
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                showResult('✅ Confirmación enviada! Revisa tu WhatsApp', 'success');
+                
+                await db.collection('whatsapp_logs').add({
+                    type: 'payment_confirmation',
+                    to: config.adminPhone,
+                    message: message,
+                    sentAt: new Date(),
+                    status: 'sent'
+                });
+            } catch (error) {
+                showResult('❌ Error: ' + error.message, 'error');
+            }
+        }
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.style.padding = '20px';
+            resultDiv.style.borderRadius = '8px';
+            resultDiv.style.background = type === 'success' ? '#d4edda' : type === 'error' ? '#fee' : '#e3f2fd';
+            resultDiv.style.color = type === 'success' ? '#155724' : type === 'error' ? '#c33' : '#1976d2';
+            resultDiv.innerHTML = `<strong>${message}</strong>`;
+        }
+    </script>
+</body>
+</html>

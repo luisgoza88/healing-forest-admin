@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug WhatsApp - Healing Forest</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+</head>
+<body style="font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px;">
+    <h1>🔧 Verificar Configuración WhatsApp</h1>
+    
+    <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Verificando tu configuración...</h3>
+        <button onclick="checkConfig()" style="background: #3b82f6; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">
+            🔍 Verificar Configuración
+        </button>
+    </div>
+    
+    <div id="configDetails" style="display: none; margin-top: 20px;"></div>
+    
+    <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>⚠️ Razones comunes por las que no llegan mensajes:</h3>
+        <ol>
+            <li><strong>Sandbox no activado correctamente</strong>
+                <ul>
+                    <li>¿Recibiste confirmación "You are all set" de Twilio?</li>
+                    <li>¿Usaste el código correcto de TU sandbox?</li>
+                </ul>
+            </li>
+            <li><strong>Número incorrecto</strong>
+                <ul>
+                    <li>El número debe incluir código de país (+57 para Colombia)</li>
+                    <li>Sin espacios ni guiones</li>
+                </ul>
+            </li>
+            <li><strong>Credenciales incorrectas</strong>
+                <ul>
+                    <li>Account SID y Auth Token deben ser exactos</li>
+                    <li>No uses API Key para sandbox, usa Auth Token</li>
+                </ul>
+            </li>
+            <li><strong>Sandbox expirado</strong>
+                <ul>
+                    <li>El sandbox expira después de 72 horas</li>
+                    <li>Necesitas volver a hacer el "join"</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+    
+    <div style="background: white; padding: 20px; border: 2px solid #16A34A; border-radius: 8px;">
+        <h3>✅ Información que necesitas de Twilio:</h3>
+        <p>Comparte la información que te dio Twilio para poder ayudarte. Especialmente:</p>
+        <ul>
+            <li>El mensaje de confirmación del sandbox</li>
+            <li>Tu código de sandbox (join xxxxx-xxxxx)</li>
+            <li>Cualquier error que aparezca</li>
+        </ul>
+    </div>
+    
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM",
+            authDomain: "healling-forest.firebaseapp.com",
+            projectId: "healling-forest",
+            storageBucket: "healling-forest.firebasestorage.app",
+            messagingSenderId: "657330224656",
+            appId: "1:657330224656:web:admin"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        async function checkConfig() {
+            const details = document.getElementById('configDetails');
+            details.style.display = 'block';
+            details.innerHTML = '<p>Cargando configuración...</p>';
+            
+            try {
+                const configDoc = await db.collection('integrations').doc('whatsapp').get();
+                
+                if (!configDoc.exists) {
+                    details.innerHTML = `
+                        <div style="background: #fee; padding: 20px; border-radius: 8px;">
+                            <h3>❌ No hay configuración de WhatsApp</h3>
+                            <p>Primero configura WhatsApp en setup_whatsapp.html</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const config = configDoc.data();
+                
+                // Ocultar partes sensibles de las credenciales
+                const hiddenSid = config.accountSid ? config.accountSid.substring(0, 10) + '...' : 'No configurado';
+                const hiddenToken = config.authToken ? '***configurado***' : 'No configurado';
+                
+                details.innerHTML = `
+                    <div style="background: #d4edda; padding: 20px; border-radius: 8px;">
+                        <h3>📋 Tu Configuración Actual:</h3>
+                        <table style="width: 100%; margin-top: 15px;">
+                            <tr>
+                                <td style="padding: 8px;"><strong>Account SID:</strong></td>
+                                <td>${hiddenSid}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong>Auth Token:</strong></td>
+                                <td>${hiddenToken}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong>Número From:</strong></td>
+                                <td>${config.fromNumber || 'No configurado'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong>Tu Número:</strong></td>
+                                <td>${config.adminPhone || 'No configurado'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong>Modo:</strong></td>
+                                <td>${config.mode || 'No configurado'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong>Configurado:</strong></td>
+                                <td>${config.configuredAt ? new Date(config.configuredAt).toLocaleString() : 'Nunca'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 20px; background: #f3f4f6; border-radius: 8px;">
+                        <h3>🔍 Verificaciones:</h3>
+                        <p>✅ Configuración encontrada en Firebase</p>
+                        <p>${config.accountSid && config.accountSid.startsWith('AC') ? '✅' : '❌'} Account SID parece válido</p>
+                        <p>${config.authToken ? '✅' : '❌'} Auth Token configurado</p>
+                        <p>${config.adminPhone && config.adminPhone.startsWith('+') ? '✅' : '❌'} Número con formato internacional</p>
+                        <p>${config.mode === 'sandbox' ? '⚠️' : '✅'} Modo: ${config.mode}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                details.innerHTML = `
+                    <div style="background: #fee; padding: 20px; border-radius: 8px;">
+                        <h3>❌ Error al verificar</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

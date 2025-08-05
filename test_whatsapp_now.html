@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enviar WhatsApp Ahora - Healing Forest</title>
+</head>
+<body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+    <h1>📱 Enviar WhatsApp a +573102962552</h1>
+    
+    <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Tu número está configurado: +573102962552</h3>
+        <p>Asegúrate de haber enviado "join tu-codigo" al +14155238886</p>
+    </div>
+    
+    <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h3>Mensaje de prueba:</h3>
+        <textarea id="message" style="width: 100%; height: 150px; padding: 10px; font-size: 14px;">🌳 *Healing Forest Admin*
+
+¡Hola! 👋
+
+✅ WhatsApp configurado exitosamente
+📱 Prueba desde el panel administrativo
+
+Tu sistema está listo para:
+• Recordatorios automáticos
+• Alertas de inventario
+• Confirmaciones de pago</textarea>
+        
+        <button onclick="sendWhatsApp()" style="background: #25D366; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 15px;">
+            Enviar WhatsApp Ahora 🚀
+        </button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px; display: none;"></div>
+    
+    <script>
+        async function sendWhatsApp() {
+            const message = document.getElementById('message').value;
+            const result = document.getElementById('result');
+            
+            result.style.display = 'block';
+            result.innerHTML = '<p>Enviando mensaje...</p>';
+            
+            try {
+                // Intentar enviar via servidor local
+                const response = await fetch('http://localhost:3333/send-whatsapp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to: '+573102962552',
+                        message: message
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.style.background = '#d4edda';
+                    result.style.padding = '20px';
+                    result.style.borderRadius = '8px';
+                    result.innerHTML = `
+                        <h3>✅ ¡Mensaje enviado!</h3>
+                        <p>Revisa tu WhatsApp (+573102962552)</p>
+                        <p style="color: #666; font-size: 14px;">ID: ${data.result.sid}</p>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+            } catch (error) {
+                result.style.background = '#fee';
+                result.style.padding = '20px';
+                result.style.borderRadius = '8px';
+                result.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                    <div style="margin-top: 15px; padding: 15px; background: #fef3c7; border-radius: 5px;">
+                        <p><strong>¿No funciona?</strong> Primero inicia el servidor:</p>
+                        <code style="background: #f3f4f6; padding: 5px; display: block; margin: 10px 0;">
+                        cd /Users/marianatejada/Desktop/HEALLING\ APP/admin_panel_simple<br>
+                        node whatsapp_server.js
+                        </code>
+                    </div>
+                `;
+            }
+        }
+    </script>
+    
+    <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin-top: 30px;">
+        <h3>📝 Instrucciones:</h3>
+        <ol>
+            <li>Abre una nueva terminal</li>
+            <li>Ejecuta:
+                <code style="background: #f3f4f6; padding: 5px; display: block; margin: 10px 0;">
+                cd /Users/marianatejada/Desktop/HEALLING\ APP/admin_panel_simple<br>
+                node whatsapp_server.js
+                </code>
+            </li>
+            <li>Deja la terminal abierta</li>
+            <li>Click en "Enviar WhatsApp Ahora"</li>
+        </ol>
+    </div>
+</body>
+</html>

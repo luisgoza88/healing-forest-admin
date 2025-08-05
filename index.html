@@ -489,6 +489,7 @@
                 <a class="nav-item" data-section="reports">Reportes</a>
                 <a class="nav-item" data-section="sop">S&OP Planning</a>
                 <a class="nav-item" data-section="integrations">Integraciones</a>
+                <a class="nav-item" data-section="whatsapp">WhatsApp</a>
                 <a class="nav-item" data-section="notifications">Notificaciones</a>
                 <a class="nav-item" data-section="settings">Configuración</a>
             </nav>
@@ -1099,6 +1100,142 @@
                     <div id="actionPlanResults" style="margin-top: 20px;">
                         <!-- Action plan will be generated here -->
                     </div>
+                </div>
+            </div>
+            
+            <!-- WhatsApp Section -->
+            <div class="content-section" id="whatsapp">
+                <div class="section-header">
+                    <h2>📱 Consola de WhatsApp Masivo</h2>
+                </div>
+                
+                <div class="status-bar" style="display: flex; gap: 20px; padding: 15px; background: #e0f2fe; border-radius: 8px; margin-bottom: 30px;">
+                    <div class="status-item" style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background: #16A34A;"></div>
+                        <span>WhatsApp Conectado</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Modo: Sandbox Twilio</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Número: +14155238886</span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <!-- Panel de envío -->
+                    <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h3 style="color: #1E3A3F; margin-bottom: 20px;">💬 Nuevo Mensaje</h3>
+                        
+                        <div class="form-group">
+                            <label>Tipo de envío</label>
+                            <select id="sendType" onchange="toggleRecipientType()">
+                                <option value="single">Individual</option>
+                                <option value="group">Grupo específico</option>
+                                <option value="all">Todos los pacientes</option>
+                                <option value="custom">Números personalizados</option>
+                            </select>
+                        </div>
+                        
+                        <div id="singleRecipient" class="form-group">
+                            <label>Número de WhatsApp</label>
+                            <input type="tel" id="phoneNumber" placeholder="+57..." value="+573102962552">
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button onclick="setPhone('+573102962552')" style="padding: 8px 16px; background: #D1FAE5; border: 1px solid #16A34A; border-radius: 20px; cursor: pointer; font-size: 14px; color: #16A34A;">Tu número</button>
+                                <button onclick="setPhone('+573023040979')" style="padding: 8px 16px; background: #D1FAE5; border: 1px solid #16A34A; border-radius: 20px; cursor: pointer; font-size: 14px; color: #16A34A;">Número prueba</button>
+                            </div>
+                        </div>
+                        
+                        <div id="customNumbers" class="form-group" style="display: none;">
+                            <label>Números (uno por línea)</label>
+                            <textarea id="customNumbersList" placeholder="+573102962552
++573023040979
++57..." style="min-height: 100px;"></textarea>
+                        </div>
+                        
+                        <div id="groupRecipient" class="form-group" style="display: none;">
+                            <label>Seleccionar pacientes</label>
+                            <div id="patientsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+                                <!-- Se carga dinámicamente -->
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button class="btn btn-secondary" onclick="selectAllPatients()">Seleccionar todos</button>
+                                <button class="btn btn-secondary" onclick="selectNonePatients()">Deseleccionar</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Plantillas rápidas</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button onclick="useTemplate('reminder')" style="padding: 8px 16px; background: #E5E7EB; border: 1px solid #D1D5DB; border-radius: 20px; cursor: pointer; font-size: 14px;">📅 Recordatorio</button>
+                                <button onclick="useTemplate('promo')" style="padding: 8px 16px; background: #E5E7EB; border: 1px solid #D1D5DB; border-radius: 20px; cursor: pointer; font-size: 14px;">🎁 Promoción</button>
+                                <button onclick="useTemplate('birthday')" style="padding: 8px 16px; background: #E5E7EB; border: 1px solid #D1D5DB; border-radius: 20px; cursor: pointer; font-size: 14px;">🎂 Cumpleaños</button>
+                                <button onclick="useTemplate('followup')" style="padding: 8px 16px; background: #E5E7EB; border: 1px solid #D1D5DB; border-radius: 20px; cursor: pointer; font-size: 14px;">👨‍⚕️ Seguimiento</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Mensaje</label>
+                            <textarea id="whatsappMessage" placeholder="Escribe tu mensaje aquí..." style="min-height: 150px;">🌳 *Healing Forest*
+
+¡Hola! 👋
+
+Este es un mensaje de prueba desde la consola administrativa.
+
+_Responde STOP para no recibir más mensajes_</textarea>
+                        </div>
+                        
+                        <button class="btn" style="background: #25D366; width: 100%; padding: 18px; font-size: 18px;" onclick="sendWhatsAppMessages()">
+                            Enviar WhatsApp 🚀
+                        </button>
+                        
+                        <div id="whatsappLoading" style="display: none; text-align: center; margin-top: 20px;">
+                            <div style="display: inline-block; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #25D366; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <p>Enviando mensajes...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Panel de estadísticas -->
+                    <div>
+                        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;">
+                            <h3 style="color: #1E3A3F; margin-bottom: 20px;">📊 Estadísticas de Envío</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                                <div style="padding: 20px; background: #F9FAFB; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: bold; color: #16A34A;" id="whatsappSent">0</div>
+                                    <div style="color: #6B7280; font-size: 14px; margin-top: 5px;">Enviados</div>
+                                </div>
+                                <div style="padding: 20px; background: #F9FAFB; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: bold; color: #16A34A;" id="whatsappDelivered">0</div>
+                                    <div style="color: #6B7280; font-size: 14px; margin-top: 5px;">Entregados</div>
+                                </div>
+                                <div style="padding: 20px; background: #F9FAFB; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: bold; color: #DC2626;" id="whatsappFailed">0</div>
+                                    <div style="color: #6B7280; font-size: 14px; margin-top: 5px;">Fallidos</div>
+                                </div>
+                                <div style="padding: 20px; background: #F9FAFB; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: bold; color: #F59E0B;" id="whatsappPending">0</div>
+                                    <div style="color: #6B7280; font-size: 14px; margin-top: 5px;">Pendientes</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            <h3 style="color: #1E3A3F; margin-bottom: 20px;">📝 Registro de Envíos</h3>
+                            <div id="whatsappLogContainer" style="max-height: 400px; overflow-y: auto; border: 1px solid #E5E7EB; border-radius: 8px; background: #F9FAFB;">
+                                <!-- Logs dinámicos -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-top: 30px;">
+                    <h4>⚠️ Importante - Configuración WhatsApp:</h4>
+                    <ol>
+                        <li>Para que funcionen los mensajes, el servidor Node.js debe estar corriendo</li>
+                        <li>Los destinatarios deben haber enviado "join tu-codigo" al +14155238886</li>
+                        <li>El sandbox de Twilio expira después de 72 horas de inactividad</li>
+                        <li>Para producción, solicita un número WhatsApp Business en Twilio</li>
+                    </ol>
                 </div>
             </div>
             

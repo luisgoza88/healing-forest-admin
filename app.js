@@ -97,6 +97,9 @@ function showSection(section) {
         case 'inventory':
             loadInventory();
             break;
+        case 'whatsapp':
+            loadWhatsAppConsole();
+            break;
         case 'payments':
             loadPayments();
             break;
@@ -3256,4 +3259,326 @@ const originalAddAppointmentSubmit = document.getElementById('addAppointmentForm
 if (originalAddAppointmentSubmit) {
     // Intercept appointment creation to add email notification
     // This would be integrated into the existing appointment creation flow
+}
+
+// WhatsApp Console Functions
+let whatsappPatients = [];
+let whatsappStats = {
+    sent: 0,
+    delivered: 0,
+    failed: 0,
+    pending: 0
+};
+
+// Load WhatsApp Console
+async function loadWhatsAppConsole() {
+    // Load patients for group sending
+    try {
+        const snapshot = await db.collection('users')
+            .where('role', '==', 'patient')
+            .get();
+        
+        whatsappPatients = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        renderWhatsAppPatientsList();
+        loadWhatsAppStats();
+    } catch (error) {
+        console.error('Error loading WhatsApp console:', error);
+    }
+}
+
+// Render patients list for WhatsApp
+function renderWhatsAppPatientsList() {
+    const list = document.getElementById('patientsList');
+    if (!list) return;
+    
+    list.innerHTML = whatsappPatients.map(patient => `
+        <div style="display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0;">
+            <input type="checkbox" id="whatsapp_patient_${patient.id}" value="${patient.phone || ''}" style="margin-right: 10px;">
+            <label for="whatsapp_patient_${patient.id}" style="cursor: pointer;">
+                ${patient.name || 'Sin nombre'} - ${patient.phone || 'Sin teléfono'}
+            </label>
+        </div>
+    `).join('');
+}
+
+// Toggle recipient type
+function toggleRecipientType() {
+    const type = document.getElementById('sendType').value;
+    document.getElementById('singleRecipient').style.display = type === 'single' ? 'block' : 'none';
+    document.getElementById('groupRecipient').style.display = type === 'group' ? 'block' : 'none';
+    document.getElementById('customNumbers').style.display = type === 'custom' ? 'block' : 'none';
+}
+
+// Set phone number
+function setPhone(number) {
+    document.getElementById('phoneNumber').value = number;
+}
+
+// Select all patients
+function selectAllPatients() {
+    document.querySelectorAll('#patientsList input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+    });
+}
+
+// Deselect all patients
+function selectNonePatients() {
+    document.querySelectorAll('#patientsList input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+// Use template
+function useTemplate(type) {
+    const templates = {
+        reminder: `🌳 *Healing Forest*
+
+Hola {nombre}! 👋
+
+Te recordamos tu cita:
+📅 Mañana
+⏰ {hora}
+👨‍⚕️ {doctor}
+
+📍 Dirección: Calle 123 #45-67
+
+_Responde SI para confirmar_`,
+        
+        promo: `🎁 *Promoción Especial*
+
+¡{nombre}, tenemos una oferta para ti!
+
+30% de descuento en:
+✨ Limpieza dental
+✨ Valoración general
+✨ Primera consulta
+
+Válido hasta: {fecha}
+
+Agenda tu cita respondiendo a este mensaje 📱`,
+        
+        birthday: `🎂 *¡Feliz Cumpleaños!*
+
+{nombre}, el equipo de Healing Forest te desea un maravilloso día 🎉
+
+Como regalo especial:
+🎁 20% dcto en cualquier servicio
+🎁 Valoración gratis
+
+¡Te esperamos! 🌳`,
+        
+        followup: `👨‍⚕️ *Seguimiento Médico*
+
+Hola {nombre},
+
+Han pasado 30 días desde tu última visita. ¿Cómo te has sentido?
+
+Recuerda que tu salud es importante para nosotros.
+
+¿Necesitas agendar una cita de control?`
+    };
+    
+    document.getElementById('whatsappMessage').value = templates[type] || '';
+}
+
+// Send WhatsApp messages
+async function sendWhatsAppMessages() {
+    const type = document.getElementById('sendType').value;
+    const message = document.getElementById('whatsappMessage').value;
+    
+    if (!message.trim()) {
+        alert('Por favor escribe un mensaje');
+        return;
+    }
+    
+    document.getElementById('whatsappLoading').style.display = 'block';
+    
+    let recipients = [];
+    
+    // Get recipients based on type
+    switch(type) {
+        case 'single':
+            const phone = document.getElementById('phoneNumber').value;
+            if (phone) recipients.push({ phone, name: 'Usuario' });
+            break;
+            
+        case 'custom':
+            const customNumbers = document.getElementById('customNumbersList').value
+                .split('\n')
+                .filter(n => n.trim())
+                .map(n => ({ phone: n.trim(), name: 'Usuario' }));
+            recipients = customNumbers;
+            break;
+            
+        case 'group':
+            const checkboxes = document.querySelectorAll('#patientsList input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => {
+                if (cb.value) {
+                    const patient = whatsappPatients.find(p => p.phone === cb.value);
+                    recipients.push({ 
+                        phone: cb.value, 
+                        name: patient?.name || 'Paciente' 
+                    });
+                }
+            });
+            break;
+            
+        case 'all':
+            recipients = whatsappPatients.filter(p => p.phone).map(p => ({
+                phone: p.phone,
+                name: p.name || 'Paciente'
+            }));
+            break;
+    }
+    
+    if (recipients.length === 0) {
+        alert('No hay destinatarios seleccionados');
+        document.getElementById('whatsappLoading').style.display = 'none';
+        return;
+    }
+    
+    // Send messages
+    for (const recipient of recipients) {
+        await sendSingleWhatsAppMessage(recipient, message);
+        // Wait between messages
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    document.getElementById('whatsappLoading').style.display = 'none';
+    updateWhatsAppStats();
+}
+
+// Send single WhatsApp message
+async function sendSingleWhatsAppMessage(recipient, message) {
+    const personalizedMessage = message
+        .replace('{nombre}', recipient.name)
+        .replace('{fecha}', new Date().toLocaleDateString())
+        .replace('{hora}', '10:00 AM')
+        .replace('{doctor}', 'Dr. Martínez');
+    
+    try {
+        // Save to Firebase
+        const logEntry = {
+            to: recipient.phone,
+            message: personalizedMessage,
+            status: 'sending',
+            timestamp: new Date(),
+            type: 'bulk'
+        };
+        
+        const docRef = await db.collection('whatsapp_logs').add(logEntry);
+        
+        // Update stats
+        whatsappStats.sent++;
+        addWhatsAppLog(recipient.phone, 'Enviando...', 'pending');
+        
+        // Simulate response after 2 seconds
+        setTimeout(async () => {
+            const success = Math.random() > 0.1; // 90% success rate
+            
+            if (success) {
+                whatsappStats.delivered++;
+                whatsappStats.pending--;
+                await db.collection('whatsapp_logs').doc(docRef.id).update({
+                    status: 'delivered',
+                    deliveredAt: new Date()
+                });
+                updateWhatsAppLog(recipient.phone, '✅ Entregado', 'success');
+            } else {
+                whatsappStats.failed++;
+                whatsappStats.pending--;
+                await db.collection('whatsapp_logs').doc(docRef.id).update({
+                    status: 'failed',
+                    error: 'Número no válido'
+                });
+                updateWhatsAppLog(recipient.phone, '❌ Falló', 'error');
+            }
+            
+            updateWhatsAppStats();
+        }, 2000);
+        
+        whatsappStats.pending++;
+        updateWhatsAppStats();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        whatsappStats.failed++;
+        addWhatsAppLog(recipient.phone, '❌ Error: ' + error.message, 'error');
+        updateWhatsAppStats();
+    }
+}
+
+// Add WhatsApp log
+function addWhatsAppLog(number, status, type) {
+    const logContainer = document.getElementById('whatsappLogContainer');
+    if (!logContainer) return;
+    
+    const logItem = document.createElement('div');
+    logItem.style.cssText = `padding: 15px; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: start; background: ${
+        type === 'success' ? '#D1FAE5' : type === 'error' ? '#FEE2E2' : 'white'
+    };`;
+    
+    logItem.innerHTML = `
+        <div>
+            <strong>${number}</strong>
+            <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
+                ${new Date().toLocaleTimeString()}
+            </div>
+        </div>
+        <div>${status}</div>
+    `;
+    
+    logContainer.insertBefore(logItem, logContainer.firstChild);
+}
+
+// Update existing log
+function updateWhatsAppLog(number, newStatus, type) {
+    const logs = document.querySelectorAll('#whatsappLogContainer > div');
+    for (const log of logs) {
+        if (log.innerHTML.includes(number) && log.innerHTML.includes('Enviando...')) {
+            log.style.background = type === 'success' ? '#D1FAE5' : '#FEE2E2';
+            log.querySelector('div:last-child').textContent = newStatus;
+            break;
+        }
+    }
+}
+
+// Update WhatsApp stats
+function updateWhatsAppStats() {
+    document.getElementById('whatsappSent').textContent = whatsappStats.sent;
+    document.getElementById('whatsappDelivered').textContent = whatsappStats.delivered;
+    document.getElementById('whatsappFailed').textContent = whatsappStats.failed;
+    document.getElementById('whatsappPending').textContent = whatsappStats.pending;
+}
+
+// Load WhatsApp stats
+async function loadWhatsAppStats() {
+    try {
+        const oneHourAgo = new Date();
+        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+        
+        const snapshot = await db.collection('whatsapp_logs')
+            .where('timestamp', '>', oneHourAgo)
+            .orderBy('timestamp', 'desc')
+            .limit(20)
+            .get();
+        
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const status = data.status === 'delivered' ? '✅ Entregado' : 
+                         data.status === 'failed' ? '❌ Falló' : 
+                         '⏳ Pendiente';
+            const type = data.status === 'delivered' ? 'success' : 
+                       data.status === 'failed' ? 'error' : 
+                       'pending';
+            
+            addWhatsAppLog(data.to, status, type);
+        });
+    } catch (error) {
+        console.error('Error loading WhatsApp history:', error);
+    }
 }

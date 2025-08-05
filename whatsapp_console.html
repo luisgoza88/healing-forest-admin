@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola WhatsApp - Healing Forest</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1E3A3F;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            padding: 15px;
+            background: #e0f2fe;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #16A34A;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #1E3A3F;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .recipients-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .recipient-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .recipient-item:last-child {
+            border-bottom: none;
+        }
+        
+        .recipient-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #16A34A;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #15803d;
+        }
+        
+        .btn-secondary {
+            background: #6B7280;
+            color: white;
+            margin-right: 10px;
+        }
+        
+        .btn-whatsapp {
+            background: #25D366;
+            color: white;
+            width: 100%;
+            padding: 18px;
+            font-size: 18px;
+        }
+        
+        .btn-whatsapp:hover {
+            background: #20BD5A;
+        }
+        
+        .message-templates {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .template-btn {
+            padding: 8px 16px;
+            background: #E5E7EB;
+            border: 1px solid #D1D5DB;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .template-btn:hover {
+            background: #D1D5DB;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            padding: 20px;
+            background: #F9FAFB;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            color: #16A34A;
+        }
+        
+        .stat-label {
+            color: #6B7280;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            background: #F9FAFB;
+        }
+        
+        .log-item {
+            padding: 15px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+        
+        .log-success {
+            background: #D1FAE5;
+        }
+        
+        .log-error {
+            background: #FEE2E2;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #25D366;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .quick-numbers {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .quick-number {
+            padding: 8px 16px;
+            background: #D1FAE5;
+            border: 1px solid #16A34A;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #16A34A;
+            font-weight: 500;
+        }
+        
+        .quick-number:hover {
+            background: #16A34A;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Consola de WhatsApp Masivo</h1>
+            <p style="color: #6B7280; margin-top: 10px;">Envía mensajes personalizados a tus pacientes</p>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>WhatsApp Conectado</span>
+            </div>
+            <div class="status-item">
+                <span>Modo: Sandbox Twilio</span>
+            </div>
+            <div class="status-item">
+                <span>Número: +14155238886</span>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Panel de envío -->
+            <div class="card">
+                <h2>💬 Nuevo Mensaje</h2>
+                
+                <div class="form-group">
+                    <label>Tipo de envío</label>
+                    <select id="sendType" onchange="toggleRecipientType()">
+                        <option value="single">Individual</option>
+                        <option value="group">Grupo específico</option>
+                        <option value="all">Todos los pacientes</option>
+                        <option value="custom">Números personalizados</option>
+                    </select>
+                </div>
+                
+                <div id="singleRecipient" class="form-group">
+                    <label>Número de WhatsApp</label>
+                    <input type="tel" id="phoneNumber" placeholder="+57..." value="+573102962552">
+                    <div class="quick-numbers">
+                        <div class="quick-number" onclick="setPhone('+573102962552')">Tu número</div>
+                        <div class="quick-number" onclick="setPhone('+573023040979')">Número prueba</div>
+                    </div>
+                </div>
+                
+                <div id="customNumbers" class="form-group" style="display: none;">
+                    <label>Números (uno por línea)</label>
+                    <textarea id="customNumbersList" placeholder="+573102962552
++573023040979
++57..."></textarea>
+                </div>
+                
+                <div id="groupRecipient" class="form-group" style="display: none;">
+                    <label>Seleccionar pacientes</label>
+                    <div class="recipients-list" id="patientsList">
+                        <!-- Se carga dinámicamente -->
+                    </div>
+                    <button class="btn btn-secondary" onclick="selectAll()">Seleccionar todos</button>
+                    <button class="btn btn-secondary" onclick="selectNone()">Deseleccionar</button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Plantillas rápidas</label>
+                    <div class="message-templates">
+                        <button class="template-btn" onclick="useTemplate('reminder')">📅 Recordatorio</button>
+                        <button class="template-btn" onclick="useTemplate('promo')">🎁 Promoción</button>
+                        <button class="template-btn" onclick="useTemplate('birthday')">🎂 Cumpleaños</button>
+                        <button class="template-btn" onclick="useTemplate('followup')">👨‍⚕️ Seguimiento</button>
+                        <button class="template-btn" onclick="useTemplate('vaccine')">💉 Vacunación</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Mensaje</label>
+                    <textarea id="message" placeholder="Escribe tu mensaje aquí...">🌳 *Healing Forest*
+
+¡Hola! 👋
+
+Este es un mensaje de prueba desde la consola administrativa.
+
+_Responde STOP para no recibir más mensajes_</textarea>
+                </div>
+                
+                <button class="btn btn-whatsapp" onclick="sendMessages()">
+                    Enviar WhatsApp 🚀
+                </button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Enviando mensajes...</p>
+                </div>
+            </div>
+            
+            <!-- Panel de estadísticas y logs -->
+            <div>
+                <div class="card" style="margin-bottom: 30px;">
+                    <h2>📊 Estadísticas de Envío</h2>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-number" id="statSent">0</div>
+                            <div class="stat-label">Enviados</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number" id="statDelivered">0</div>
+                            <div class="stat-label">Entregados</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number" id="statFailed">0</div>
+                            <div class="stat-label">Fallidos</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number" id="statPending">0</div>
+                            <div class="stat-label">Pendientes</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>📝 Registro de Envíos</h2>
+                    <div class="log-container" id="logContainer">
+                        <!-- Logs dinámicos -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM",
+            authDomain: "healling-forest.firebaseapp.com",
+            projectId: "healling-forest",
+            storageBucket: "healling-forest.firebasestorage.app",
+            messagingSenderId: "657330224656",
+            appId: "1:657330224656:web:admin"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // Variables globales
+        let patients = [];
+        let stats = {
+            sent: 0,
+            delivered: 0,
+            failed: 0,
+            pending: 0
+        };
+        
+        // Cargar pacientes
+        async function loadPatients() {
+            try {
+                const snapshot = await db.collection('users')
+                    .where('role', '==', 'patient')
+                    .get();
+                
+                patients = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                renderPatientsList();
+            } catch (error) {
+                console.error('Error loading patients:', error);
+            }
+        }
+        
+        // Renderizar lista de pacientes
+        function renderPatientsList() {
+            const list = document.getElementById('patientsList');
+            list.innerHTML = patients.map(patient => `
+                <div class="recipient-item">
+                    <input type="checkbox" id="patient_${patient.id}" value="${patient.phone || ''}">
+                    <label for="patient_${patient.id}">
+                        ${patient.name || 'Sin nombre'} - ${patient.phone || 'Sin teléfono'}
+                    </label>
+                </div>
+            `).join('');
+        }
+        
+        // Toggle tipo de destinatario
+        function toggleRecipientType() {
+            const type = document.getElementById('sendType').value;
+            document.getElementById('singleRecipient').style.display = type === 'single' ? 'block' : 'none';
+            document.getElementById('groupRecipient').style.display = type === 'group' ? 'block' : 'none';
+            document.getElementById('customNumbers').style.display = type === 'custom' ? 'block' : 'none';
+        }
+        
+        // Seleccionar todos
+        function selectAll() {
+            document.querySelectorAll('#patientsList input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+        }
+        
+        // Deseleccionar todos
+        function selectNone() {
+            document.querySelectorAll('#patientsList input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+        
+        // Establecer número rápido
+        function setPhone(number) {
+            document.getElementById('phoneNumber').value = number;
+        }
+        
+        // Usar plantilla
+        function useTemplate(type) {
+            const templates = {
+                reminder: `🌳 *Healing Forest*
+
+Hola {nombre}! 👋
+
+Te recordamos tu cita:
+📅 Mañana
+⏰ {hora}
+👨‍⚕️ {doctor}
+
+📍 Dirección: Calle 123 #45-67
+
+_Responde SI para confirmar_`,
+                
+                promo: `🎁 *Promoción Especial*
+
+¡{nombre}, tenemos una oferta para ti!
+
+30% de descuento en:
+✨ Limpieza dental
+✨ Valoración general
+✨ Primera consulta
+
+Válido hasta: {fecha}
+
+Agenda tu cita respondiendo a este mensaje 📱`,
+                
+                birthday: `🎂 *¡Feliz Cumpleaños!*
+
+{nombre}, el equipo de Healing Forest te desea un maravilloso día 🎉
+
+Como regalo especial:
+🎁 20% dcto en cualquier servicio
+🎁 Valoración gratis
+
+¡Te esperamos! 🌳`,
+                
+                followup: `👨‍⚕️ *Seguimiento Médico*
+
+Hola {nombre},
+
+Han pasado 30 días desde tu última visita. ¿Cómo te has sentido?
+
+Recuerda que tu salud es importante para nosotros.
+
+¿Necesitas agendar una cita de control?`,
+                
+                vaccine: `💉 *Recordatorio de Vacunación*
+
+{nombre}, según nuestros registros es momento de:
+
+📋 {vacuna}
+📅 Fecha sugerida: {fecha}
+
+Agenda tu cita para proteger tu salud.
+
+Responde para más información.`
+            };
+            
+            document.getElementById('message').value = templates[type] || '';
+        }
+        
+        // Enviar mensajes
+        async function sendMessages() {
+            const type = document.getElementById('sendType').value;
+            const message = document.getElementById('message').value;
+            
+            if (!message.trim()) {
+                alert('Por favor escribe un mensaje');
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            
+            let recipients = [];
+            
+            // Obtener destinatarios según el tipo
+            switch(type) {
+                case 'single':
+                    const phone = document.getElementById('phoneNumber').value;
+                    if (phone) recipients.push({ phone, name: 'Usuario' });
+                    break;
+                    
+                case 'custom':
+                    const customNumbers = document.getElementById('customNumbersList').value
+                        .split('\n')
+                        .filter(n => n.trim())
+                        .map(n => ({ phone: n.trim(), name: 'Usuario' }));
+                    recipients = customNumbers;
+                    break;
+                    
+                case 'group':
+                    const checkboxes = document.querySelectorAll('#patientsList input[type="checkbox"]:checked');
+                    checkboxes.forEach(cb => {
+                        if (cb.value) {
+                            const patient = patients.find(p => p.phone === cb.value);
+                            recipients.push({ 
+                                phone: cb.value, 
+                                name: patient?.name || 'Paciente' 
+                            });
+                        }
+                    });
+                    break;
+                    
+                case 'all':
+                    recipients = patients.filter(p => p.phone).map(p => ({
+                        phone: p.phone,
+                        name: p.name || 'Paciente'
+                    }));
+                    break;
+            }
+            
+            if (recipients.length === 0) {
+                alert('No hay destinatarios seleccionados');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+            
+            // Enviar mensajes
+            for (const recipient of recipients) {
+                await sendSingleMessage(recipient, message);
+                // Esperar un poco entre mensajes para no saturar
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+            updateStats();
+        }
+        
+        // Enviar mensaje individual
+        async function sendSingleMessage(recipient, message) {
+            const personalizedMessage = message
+                .replace('{nombre}', recipient.name)
+                .replace('{fecha}', new Date().toLocaleDateString())
+                .replace('{hora}', '10:00 AM')
+                .replace('{doctor}', 'Dr. Martínez')
+                .replace('{vacuna}', 'Refuerzo COVID-19');
+            
+            try {
+                // Guardar en Firebase
+                const logEntry = {
+                    to: recipient.phone,
+                    message: personalizedMessage,
+                    status: 'sending',
+                    timestamp: new Date(),
+                    type: 'bulk'
+                };
+                
+                const docRef = await db.collection('whatsapp_logs').add(logEntry);
+                
+                // Simular envío (en producción esto llamaría al servidor)
+                stats.sent++;
+                addLog(recipient.phone, 'Enviando...', 'pending');
+                
+                // Simular respuesta después de 2 segundos
+                setTimeout(async () => {
+                    const success = Math.random() > 0.1; // 90% éxito
+                    
+                    if (success) {
+                        stats.delivered++;
+                        stats.pending--;
+                        await db.collection('whatsapp_logs').doc(docRef.id).update({
+                            status: 'delivered',
+                            deliveredAt: new Date()
+                        });
+                        updateLog(recipient.phone, '✅ Entregado', 'success');
+                    } else {
+                        stats.failed++;
+                        stats.pending--;
+                        await db.collection('whatsapp_logs').doc(docRef.id).update({
+                            status: 'failed',
+                            error: 'Número no válido'
+                        });
+                        updateLog(recipient.phone, '❌ Falló', 'error');
+                    }
+                    
+                    updateStats();
+                }, 2000);
+                
+                stats.pending++;
+                updateStats();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                stats.failed++;
+                addLog(recipient.phone, '❌ Error: ' + error.message, 'error');
+                updateStats();
+            }
+        }
+        
+        // Agregar log
+        function addLog(number, status, type) {
+            const logContainer = document.getElementById('logContainer');
+            const logItem = document.createElement('div');
+            logItem.className = `log-item ${type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : ''}`;
+            logItem.innerHTML = `
+                <div>
+                    <strong>${number}</strong>
+                    <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div>${status}</div>
+            `;
+            logContainer.insertBefore(logItem, logContainer.firstChild);
+        }
+        
+        // Actualizar log existente
+        function updateLog(number, newStatus, type) {
+            const logs = document.querySelectorAll('.log-item');
+            for (const log of logs) {
+                if (log.innerHTML.includes(number) && log.innerHTML.includes('Enviando...')) {
+                    log.className = `log-item ${type === 'success' ? 'log-success' : 'log-error'}`;
+                    log.querySelector('div:last-child').textContent = newStatus;
+                    break;
+                }
+            }
+        }
+        
+        // Actualizar estadísticas
+        function updateStats() {
+            document.getElementById('statSent').textContent = stats.sent;
+            document.getElementById('statDelivered').textContent = stats.delivered;
+            document.getElementById('statFailed').textContent = stats.failed;
+            document.getElementById('statPending').textContent = stats.pending;
+        }
+        
+        // Cargar datos históricos
+        async function loadHistoricalStats() {
+            try {
+                const oneHourAgo = new Date();
+                oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+                
+                const snapshot = await db.collection('whatsapp_logs')
+                    .where('timestamp', '>', oneHourAgo)
+                    .orderBy('timestamp', 'desc')
+                    .limit(20)
+                    .get();
+                
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const status = data.status === 'delivered' ? '✅ Entregado' : 
+                                 data.status === 'failed' ? '❌ Falló' : 
+                                 '⏳ Pendiente';
+                    const type = data.status === 'delivered' ? 'success' : 
+                               data.status === 'failed' ? 'error' : 
+                               'pending';
+                    
+                    addLog(data.to, status, type);
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+        
+        // Inicializar
+        window.onload = () => {
+            loadPatients();
+            loadHistoricalStats();
+        };
+    </script>
+</body>
+</html>
