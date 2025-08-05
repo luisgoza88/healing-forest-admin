@@ -615,7 +615,7 @@ async function loadServices() {
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name}')">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name || 'Servicio'}'); return false;">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -723,16 +723,29 @@ function closeCalendarModal() {
 
 // Show service calendar
 async function showServiceCalendar(serviceId, serviceName) {
-    const modal = document.getElementById('calendarModal');
-    const modalTitle = document.getElementById('calendarModalTitle');
-    const modalBody = document.getElementById('calendarModalBody');
-    
-    // Set title
-    modalTitle.textContent = `Calendario de ${serviceName}`;
-    
-    // Get service data
-    const serviceDoc = await db.collection('services').doc(serviceId).get();
-    const service = serviceDoc.data();
+    try {
+        console.log('Opening calendar for:', serviceId, serviceName);
+        
+        const modal = document.getElementById('calendarModal');
+        const modalTitle = document.getElementById('calendarModalTitle');
+        const modalBody = document.getElementById('calendarModalBody');
+        
+        if (!modal || !modalTitle || !modalBody) {
+            console.error('Calendar modal elements not found');
+            alert('Error: No se encontró el modal del calendario');
+            return;
+        }
+        
+        // Set title
+        modalTitle.textContent = `Calendario de ${serviceName}`;
+        
+        // Get service data
+        const serviceDoc = await db.collection('services').doc(serviceId).get();
+        if (!serviceDoc.exists) {
+            alert('Error: Servicio no encontrado');
+            return;
+        }
+        const service = serviceDoc.data();
     
     // Create calendar content
     modalBody.innerHTML = `
@@ -775,6 +788,11 @@ async function showServiceCalendar(serviceId, serviceName) {
     setTimeout(() => {
         initializeCalendarForService(serviceId, service);
     }, 100);
+    
+    } catch (error) {
+        console.error('Error showing service calendar:', error);
+        alert('Error al abrir el calendario: ' + error.message);
+    }
 }
 
 // Initialize calendar for a specific service
@@ -891,6 +909,12 @@ function addServiceSlot(serviceId) {
 // Configure service schedule
 function configureServiceSchedule(serviceId) {
     alert('Función para configurar horarios semanales - En desarrollo');
+}
+
+// Show appointment details
+function showAppointmentDetails(appointmentId) {
+    console.log('Showing appointment details for:', appointmentId);
+    alert('Detalles de la cita - En desarrollo');
 }
 
 // Update ALL services with capacity info
