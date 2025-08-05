@@ -324,6 +324,45 @@
             max-width: 500px;
         }
         
+        /* Calendar Modal */
+        .calendar-modal .modal-content {
+            max-width: 1200px;
+            width: 95%;
+            height: 90vh;
+            max-height: 900px;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .calendar-container {
+            flex: 1;
+            overflow: auto;
+            margin-top: 20px;
+        }
+        
+        /* Service availability indicators */
+        .availability-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .availability-dot.available {
+            background-color: #16A34A;
+        }
+        
+        .availability-dot.almost-full {
+            background-color: #F59E0B;
+        }
+        
+        .availability-dot.full {
+            background-color: #DC2626;
+        }
+        
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -1333,6 +1372,19 @@ _Responde STOP para no recibir más mensajes_</textarea>
             </div>
             <div id="modalBody">
                 <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Calendar Modal -->
+    <div class="modal calendar-modal" id="calendarModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="calendarModalTitle">Calendario de Servicio</h2>
+                <button class="close-btn" onclick="closeCalendarModal()">&times;</button>
+            </div>
+            <div id="calendarModalBody">
+                <!-- Calendar will be loaded here -->
             </div>
         </div>
     </div>

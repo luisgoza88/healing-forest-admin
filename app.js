@@ -598,8 +598,14 @@ async function loadServices() {
             snapshot.forEach(doc => {
                 const service = doc.data();
                 // Check if this service has capacity management
-                const hasCapacityManagement = window.serviceCapacity && window.serviceCapacity.SERVICE_CAPACITY[doc.id];
-                const capacityInfo = hasCapacityManagement ? window.serviceCapacity.SERVICE_CAPACITY[doc.id] : null;
+                const serviceKey = doc.id.toLowerCase();
+                const hasCapacityManagement = service.hasCapacityManagement || 
+                    ['yoga', 'masaje', 'massage', 'sauna', 'camara_hiperbarica', 'hyperbaric', 'sueros', 'iv_therapy'].some(key => 
+                        serviceKey.includes(key) || service.name.toLowerCase().includes(key)
+                    );
+                const capacityInfo = service.maxParticipants ? 
+                    { capacity: service.maxParticipants, type: service.isGroupService ? 'group' : 'individual' } : 
+                    null;
                 
                 const row = `
                     <tr>
@@ -629,11 +635,61 @@ async function loadServices() {
 // Add default services
 async function addDefaultServices() {
     const defaultServices = [
-        { id: 'yoga', name: 'Yoga Terapéutico', category: 'Bienestar', duration: 60, price: 40, active: true },
-        { id: 'massage', name: 'Masajes', category: 'Bienestar', duration: 60, price: 80, active: true },
-        { id: 'sauna', name: 'Sauna', category: 'Bienestar', duration: 45, price: 50, active: true },
-        { id: 'hyperbaric', name: 'Cámara Hiperbárica', category: 'Medicina', duration: 90, price: 120, active: true },
-        { id: 'iv_therapy', name: 'Terapia IV', category: 'Medicina', duration: 45, price: 100, active: true }
+        { 
+            id: 'yoga', 
+            name: 'Yoga Terapéutico', 
+            category: 'Bienestar', 
+            duration: 60, 
+            price: 40, 
+            active: true,
+            isGroupService: true,
+            maxParticipants: 16,
+            hasCapacityManagement: true
+        },
+        { 
+            id: 'massage', 
+            name: 'Masajes', 
+            category: 'Bienestar', 
+            duration: 60, 
+            price: 80, 
+            active: true,
+            isGroupService: false,
+            maxParticipants: 1,
+            hasCapacityManagement: true
+        },
+        { 
+            id: 'sauna', 
+            name: 'Sauna y Baño Helado', 
+            category: 'Bienestar', 
+            duration: 45, 
+            price: 50, 
+            active: true,
+            isGroupService: false,
+            maxParticipants: 1,
+            hasCapacityManagement: true
+        },
+        { 
+            id: 'hyperbaric', 
+            name: 'Cámara Hiperbárica', 
+            category: 'Medicina', 
+            duration: 90, 
+            price: 120, 
+            active: true,
+            isGroupService: false,
+            maxParticipants: 1,
+            hasCapacityManagement: true
+        },
+        { 
+            id: 'iv_therapy', 
+            name: 'Sueros IV', 
+            category: 'Medicina', 
+            duration: 45, 
+            price: 100, 
+            active: true,
+            isGroupService: true,
+            maxParticipants: 5,
+            hasCapacityManagement: true
+        }
     ];
     
     for (const service of defaultServices) {
@@ -656,6 +712,16 @@ function showModal(title, content) {
 
 function closeModal() {
     document.getElementById('modal').classList.remove('active');
+}
+
+// Close calendar modal
+function closeCalendarModal() {
+    document.getElementById('calendarModal').classList.remove('active');
+    // Clean up calendar instance if exists
+    if (window.currentCalendarInstance) {
+        window.currentCalendarInstance.destroy();
+        window.currentCalendarInstance = null;
+    }
 }
 
 // Add Staff Modal
