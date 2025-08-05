@@ -100,6 +100,9 @@ function showSection(section) {
         case 'reports':
             // Reports section doesn't need to load data
             break;
+        case 'sop':
+            loadSOPData();
+            break;
         case 'notifications':
             loadNotifications();
             break;
@@ -1605,6 +1608,397 @@ function createDateFilter(tableId, dateColumnIndex) {
     container.appendChild(clearBtn);
     
     return container;
+}
+
+// S&OP FUNCTIONS
+let sopCharts = {
+    demandCapacity: null,
+    serviceMix: null,
+    revenueProjection: null
+};
+
+async function loadSOPData() {
+    const period = document.getElementById('sopPeriod')?.value || 'month';
+    
+    try {
+        // Calculate date ranges
+        const now = new Date();
+        let startDate = new Date();
+        let endDate = new Date();
+        
+        switch(period) {
+            case 'week':
+                startDate.setDate(now.getDate() - 7);
+                endDate.setDate(now.getDate() + 7);
+                break;
+            case 'month':
+                startDate.setMonth(now.getMonth() - 1);
+                endDate.setMonth(now.getMonth() + 1);
+                break;
+            case 'quarter':
+                startDate.setMonth(now.getMonth() - 3);
+                endDate.setMonth(now.getMonth() + 3);
+                break;
+            case 'year':
+                startDate.setFullYear(now.getFullYear() - 1);
+                endDate.setFullYear(now.getFullYear() + 1);
+                break;
+        }
+        
+        // Load historical data
+        const [appointmentsData, paymentsData, staffData, servicesData] = await Promise.all([
+            db.collection('appointments')
+                .where('date', '>=', startDate)
+                .where('date', '<=', endDate)
+                .get(),
+            db.collection('payments')
+                .where('date', '>=', startDate)
+                .where('date', '<=', endDate)
+                .get(),
+            db.collection('staff').where('active', '==', true).get(),
+            db.collection('services').where('active', '==', true).get()
+        ]);
+        
+        // Calculate metrics
+        const metrics = calculateSOPMetrics(appointmentsData, paymentsData, staffData, servicesData, period);
+        
+        // Update KPIs
+        updateSOPKPIs(metrics);
+        
+        // Update charts
+        updateSOPCharts(metrics);
+        
+        // Update resource planning table
+        updateResourcePlanning(metrics);
+        
+        // Generate alerts
+        generateSOPAlerts(metrics);
+        
+    } catch (error) {
+        console.error('Error loading S&OP data:', error);
+    }
+}
+
+function calculateSOPMetrics(appointments, payments, staff, services, period) {
+    const metrics = {
+        totalAppointments: appointments.size,
+        completedAppointments: 0,
+        cancelledAppointments: 0,
+        totalRevenue: 0,
+        projectedDemand: 0,
+        capacityUtilization: 0,
+        serviceBreakdown: {},
+        staffUtilization: {},
+        dailyTrends: {}
+    };
+    
+    // Process appointments
+    appointments.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'completada') metrics.completedAppointments++;
+        if (data.status === 'cancelada') metrics.cancelledAppointments++;
+        
+        // Service breakdown
+        const service = data.service || 'Sin servicio';
+        metrics.serviceBreakdown[service] = (metrics.serviceBreakdown[service] || 0) + 1;
+        
+        // Staff utilization
+        const staffName = data.staffName || 'Sin asignar';
+        metrics.staffUtilization[staffName] = (metrics.staffUtilization[staffName] || 0) + 1;
+    });
+    
+    // Process payments
+    payments.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'pagado') {
+            metrics.totalRevenue += data.amount || 0;
+        }
+    });
+    
+    // Calculate projections based on historical trends
+    const growthRate = 1.1; // 10% growth assumption
+    metrics.projectedDemand = Math.round(metrics.totalAppointments * growthRate);
+    
+    // Calculate capacity utilization
+    const totalStaff = staff.size;
+    const workingHours = period === 'week' ? 40 : period === 'month' ? 160 : 480;
+    const totalCapacity = totalStaff * workingHours;
+    const usedCapacity = metrics.completedAppointments * 1; // 1 hour per appointment average
+    metrics.capacityUtilization = Math.round((usedCapacity / totalCapacity) * 100);
+    
+    return metrics;
+}
+
+function updateSOPKPIs(metrics) {
+    document.getElementById('projectedDemand').textContent = metrics.projectedDemand;
+    document.getElementById('availableCapacity').textContent = metrics.capacityUtilization + '%';
+    document.getElementById('projectedRevenue').textContent = '$' + Math.round(metrics.totalRevenue * 1.1).toLocaleString();
+    document.getElementById('actualRevenue').textContent = '$' + metrics.totalRevenue.toLocaleString();
+    
+    const efficiency = Math.round((metrics.completedAppointments / metrics.totalAppointments) * 100) || 0;
+    document.getElementById('operationalEfficiency').textContent = efficiency + '%';
+}
+
+function updateSOPCharts(metrics) {
+    // Demand vs Capacity Chart
+    const ctx1 = document.getElementById('demandCapacityChart')?.getContext('2d');
+    if (ctx1) {
+        if (sopCharts.demandCapacity) sopCharts.demandCapacity.destroy();
+        
+        sopCharts.demandCapacity = new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+                datasets: [{
+                    label: 'Demanda',
+                    data: [metrics.totalAppointments * 0.8, metrics.totalAppointments * 0.9, metrics.totalAppointments, metrics.projectedDemand],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Capacidad',
+                    data: [100, 100, 100, 100],
+                    borderColor: '#16A34A',
+                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Análisis de Demanda vs Capacidad'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Service Mix Chart
+    const ctx2 = document.getElementById('serviceMixChart')?.getContext('2d');
+    if (ctx2) {
+        if (sopCharts.serviceMix) sopCharts.serviceMix.destroy();
+        
+        sopCharts.serviceMix = new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(metrics.serviceBreakdown),
+                datasets: [{
+                    data: Object.values(metrics.serviceBreakdown),
+                    backgroundColor: [
+                        '#16A34A',
+                        '#0ea5e9',
+                        '#f59e0b',
+                        '#ef4444',
+                        '#8b5cf6'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    
+    // Revenue Projection Chart
+    const ctx3 = document.getElementById('revenueProjectionChart')?.getContext('2d');
+    if (ctx3) {
+        if (sopCharts.revenueProjection) sopCharts.revenueProjection.destroy();
+        
+        const currentRevenue = metrics.totalRevenue;
+        sopCharts.revenueProjection = new Chart(ctx3, {
+            type: 'bar',
+            data: {
+                labels: ['Actual', 'Proyectado', 'Meta'],
+                datasets: [{
+                    label: 'Ingresos',
+                    data: [currentRevenue, currentRevenue * 1.1, currentRevenue * 1.2],
+                    backgroundColor: ['#16A34A', '#0ea5e9', '#f59e0b']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function updateResourcePlanning(metrics) {
+    const tbody = document.querySelector('#resourcePlanningTable tbody');
+    tbody.innerHTML = '';
+    
+    // Sample resource data
+    const resources = [
+        {
+            name: 'Consultorios',
+            total: 10,
+            used: Math.round(metrics.capacityUtilization * 0.1),
+            projection: Math.round(metrics.capacityUtilization * 1.1 * 0.1)
+        },
+        {
+            name: 'Personal Médico',
+            total: Object.keys(metrics.staffUtilization).length,
+            used: Object.values(metrics.staffUtilization).reduce((a, b) => a + b, 0),
+            projection: metrics.projectedDemand
+        },
+        {
+            name: 'Equipos Especializados',
+            total: 5,
+            used: 3,
+            projection: 4
+        }
+    ];
+    
+    resources.forEach(resource => {
+        const available = resource.total - resource.used;
+        const utilization = Math.round((resource.used / resource.total) * 100);
+        
+        const row = `
+            <tr>
+                <td>${resource.name}</td>
+                <td>${resource.total}</td>
+                <td>${resource.used}</td>
+                <td>${available}</td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 100px; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin-right: 10px;">
+                            <div style="width: ${utilization}%; height: 100%; background: ${utilization > 80 ? '#ef4444' : utilization > 60 ? '#f59e0b' : '#16A34A'};"></div>
+                        </div>
+                        ${utilization}%
+                    </div>
+                </td>
+                <td>${resource.projection} (${resource.projection > resource.total ? '⚠️ Sobre capacidad' : '✅ OK'})</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+
+function generateSOPAlerts(metrics) {
+    const alertsDiv = document.getElementById('sopAlerts');
+    const alerts = [];
+    
+    // Check capacity utilization
+    if (metrics.capacityUtilization > 80) {
+        alerts.push('⚠️ Alta utilización de capacidad (' + metrics.capacityUtilization + '%). Considera contratar más personal.');
+    }
+    
+    // Check cancellation rate
+    const cancellationRate = (metrics.cancelledAppointments / metrics.totalAppointments) * 100;
+    if (cancellationRate > 15) {
+        alerts.push('⚠️ Alta tasa de cancelación (' + Math.round(cancellationRate) + '%). Implementa recordatorios automáticos.');
+    }
+    
+    // Check revenue growth
+    if (metrics.totalRevenue < metrics.projectedRevenue * 0.9) {
+        alerts.push('📉 Ingresos por debajo de la proyección. Revisa estrategias de marketing.');
+    }
+    
+    // Positive alerts
+    if (metrics.capacityUtilization > 60 && metrics.capacityUtilization < 80) {
+        alerts.push('✅ Utilización de capacidad óptima. Buen balance entre demanda y recursos.');
+    }
+    
+    alertsDiv.innerHTML = alerts.map(alert => `<p style="margin: 5px 0;">${alert}</p>`).join('');
+}
+
+function generateActionPlan() {
+    const growthTarget = parseInt(document.getElementById('growthTarget').value) || 10;
+    const resultsDiv = document.getElementById('actionPlanResults');
+    
+    const actions = [
+        {
+            area: 'Marketing',
+            action: `Aumentar presupuesto de marketing en ${Math.round(growthTarget * 0.5)}% para alcanzar ${growthTarget}% de crecimiento`,
+            timeline: '2 semanas'
+        },
+        {
+            area: 'Operaciones',
+            action: `Optimizar horarios para aumentar capacidad en ${Math.round(growthTarget * 0.3)}%`,
+            timeline: '1 mes'
+        },
+        {
+            area: 'Personal',
+            action: growthTarget > 15 ? 'Contratar 1-2 profesionales adicionales' : 'Capacitar personal existente en nuevos servicios',
+            timeline: '6 semanas'
+        },
+        {
+            area: 'Servicios',
+            action: 'Lanzar paquetes promocionales para servicios menos utilizados',
+            timeline: '1 semana'
+        }
+    ];
+    
+    resultsDiv.innerHTML = `
+        <h4>Plan de Acción para ${growthTarget}% de Crecimiento:</h4>
+        <table style="width: 100%; margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>Área</th>
+                    <th>Acción</th>
+                    <th>Timeline</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${actions.map(action => `
+                    <tr>
+                        <td>${action.area}</td>
+                        <td>${action.action}</td>
+                        <td>${action.timeline}</td>
+                        <td><button class="action-btn" style="background: #16A34A; color: white;">Iniciar</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function exportSOPReport() {
+    // Prepare data for export
+    const wb = XLSX.utils.book_new();
+    
+    // KPIs sheet
+    const kpis = [
+        ['Métrica', 'Valor'],
+        ['Demanda Proyectada', document.getElementById('projectedDemand').textContent],
+        ['Capacidad Utilizada', document.getElementById('availableCapacity').textContent],
+        ['Ingresos Proyectados', document.getElementById('projectedRevenue').textContent],
+        ['Eficiencia Operativa', document.getElementById('operationalEfficiency').textContent]
+    ];
+    
+    const ws1 = XLSX.utils.aoa_to_sheet(kpis);
+    XLSX.utils.book_append_sheet(wb, ws1, 'KPIs');
+    
+    // Generate filename with date
+    const date = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `SOP_Report_${date}.xlsx`);
 }
 
 // Update the appointment creation to send notifications

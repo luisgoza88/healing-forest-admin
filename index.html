@@ -447,6 +447,7 @@
                 <a class="nav-item" data-section="services">Servicios</a>
                 <a class="nav-item" data-section="payments">Pagos</a>
                 <a class="nav-item" data-section="reports">Reportes</a>
+                <a class="nav-item" data-section="sop">S&OP Planning</a>
                 <a class="nav-item" data-section="notifications">Notificaciones</a>
                 <a class="nav-item" data-section="settings">Configuración</a>
             </nav>
@@ -759,6 +760,109 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- S&OP Section -->
+            <div class="content-section" id="sop">
+                <div class="section-header">
+                    <h2>Sales & Operations Planning (S&OP)</h2>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportSOPReport()">
+                            📥 Exportar Informe S&OP
+                        </button>
+                        <select id="sopPeriod" onchange="loadSOPData()" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="week">Esta Semana</option>
+                            <option value="month" selected>Este Mes</option>
+                            <option value="quarter">Este Trimestre</option>
+                            <option value="year">Este Año</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- KPIs Dashboard -->
+                <div class="stats-grid" style="margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <h3>Demanda Proyectada</h3>
+                        <div class="value" id="projectedDemand">0</div>
+                        <small style="color: #666;">Citas esperadas</small>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Capacidad Disponible</h3>
+                        <div class="value" id="availableCapacity">0%</div>
+                        <small style="color: #666;">Utilización actual</small>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Ingresos Proyectados</h3>
+                        <div class="value" id="projectedRevenue">$0</div>
+                        <small style="color: #666;">vs Real: <span id="actualRevenue">$0</span></small>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Eficiencia Operativa</h3>
+                        <div class="value" id="operationalEfficiency">0%</div>
+                        <small style="color: #666;">Meta: 85%</small>
+                    </div>
+                </div>
+                
+                <!-- Demand vs Capacity Chart -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 20px;">Análisis Demanda vs Capacidad</h3>
+                    <canvas id="demandCapacityChart"></canvas>
+                </div>
+                
+                <!-- Service Mix Analysis -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <h3 style="margin-bottom: 20px;">Mix de Servicios</h3>
+                        <canvas id="serviceMixChart"></canvas>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <h3 style="margin-bottom: 20px;">Proyección de Ingresos</h3>
+                        <canvas id="revenueProjectionChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Resource Planning Table -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 20px;">Planificación de Recursos</h3>
+                    <table id="resourcePlanningTable">
+                        <thead>
+                            <tr>
+                                <th>Recurso</th>
+                                <th>Capacidad Total</th>
+                                <th>Utilizado</th>
+                                <th>Disponible</th>
+                                <th>% Ocupación</th>
+                                <th>Proyección</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="loading">Cargando datos...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Alerts and Recommendations -->
+                <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                    <h3 style="color: #92400e; margin-bottom: 15px;">🚨 Alertas y Recomendaciones S&OP</h3>
+                    <div id="sopAlerts">
+                        <p>• Analizando datos para generar recomendaciones...</p>
+                    </div>
+                </div>
+                
+                <!-- Action Plan -->
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 20px;">Plan de Acción S&OP</h3>
+                    <div class="form-group">
+                        <label>Objetivo de Crecimiento (%)</label>
+                        <input type="number" id="growthTarget" value="10" min="0" max="100" style="width: 100px; padding: 8px;">
+                        <button class="add-btn" style="margin-left: 10px;" onclick="generateActionPlan()">Generar Plan</button>
+                    </div>
+                    <div id="actionPlanResults" style="margin-top: 20px;">
+                        <!-- Action plan will be generated here -->
+                    </div>
+                </div>
             </div>
             
             <!-- Settings Section -->
