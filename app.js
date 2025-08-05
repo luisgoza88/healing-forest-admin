@@ -94,6 +94,9 @@ function showSection(section) {
         case 'services':
             loadServices();
             break;
+        case 'inventory':
+            loadInventory();
+            break;
         case 'payments':
             loadPayments();
             break;
@@ -1999,6 +2002,559 @@ function exportSOPReport() {
     // Generate filename with date
     const date = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `SOP_Report_${date}.xlsx`);
+}
+
+// INVENTORY FUNCTIONS
+let currentCategory = 'all';
+
+async function loadInventory() {
+    try {
+        // Add search box if not exists
+        const inventorySection = document.getElementById('inventory');
+        const inventoryTable = document.getElementById('inventoryTable');
+        if (!inventorySection.querySelector('.search-input')) {
+            const searchInput = createSearchInput('inventoryTable', 'Buscar productos...');
+            searchInput.classList.add('search-input');
+            searchInput.style.marginBottom = '15px';
+            inventoryTable.parentNode.insertBefore(searchInput, inventoryTable.previousElementSibling);
+        }
+        
+        // Load products
+        const snapshot = await db.collection('products').get();
+        
+        const tbody = document.querySelector('#inventoryTable tbody');
+        tbody.innerHTML = '';
+        
+        let totalProducts = 0;
+        let totalValue = 0;
+        let lowStockCount = 0;
+        
+        if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay productos registrados</td></tr>';
+            // Add sample products
+            await addSampleProducts();
+        } else {
+            snapshot.forEach(doc => {
+                const product = doc.data();
+                totalProducts++;
+                
+                const stockValue = (product.stock || 0) * (product.price || 0);
+                totalValue += stockValue;
+                
+                // Check stock status
+                let stockStatus = 'stock-ok';
+                let stockStatusText = 'OK';
+                if (product.stock <= 0) {
+                    stockStatus = 'stock-out';
+                    stockStatusText = 'Agotado';
+                    lowStockCount++;
+                } else if (product.stock <= product.minStock) {
+                    stockStatus = 'stock-low';
+                    stockStatusText = 'Bajo';
+                    lowStockCount++;
+                }
+                
+                const row = `
+                    <tr data-category="${product.category || 'otros'}">
+                        <td>${product.code || 'N/A'}</td>
+                        <td>${product.name || 'N/A'}</td>
+                        <td>${product.category || 'otros'}</td>
+                        <td class="${stockStatus}">${product.stock || 0}</td>
+                        <td>${product.minStock || 0}</td>
+                        <td>$${(product.price || 0).toFixed(2)}</td>
+                        <td>$${stockValue.toFixed(2)}</td>
+                        <td><span class="${stockStatus}">${stockStatusText}</span></td>
+                        <td>
+                            <button class="action-btn" style="background: #16A34A; color: white;" onclick="showAdjustStock('${doc.id}')">Ajustar</button>
+                            <button class="action-btn edit-btn" onclick="editProduct('${doc.id}')">Editar</button>
+                            <button class="action-btn delete-btn" onclick="deleteProduct('${doc.id}')">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        // Update stats
+        document.getElementById('totalProducts').textContent = totalProducts;
+        document.getElementById('totalInventoryValue').textContent = '$' + totalValue.toFixed(2);
+        document.getElementById('lowStockCount').textContent = lowStockCount;
+        
+        // Load movements
+        loadMovements();
+        
+        // Apply current category filter
+        if (currentCategory !== 'all') {
+            filterByCategory(currentCategory);
+        }
+    } catch (error) {
+        console.error('Error loading inventory:', error);
+    }
+}
+
+async function loadMovements() {
+    try {
+        const snapshot = await db.collection('inventory_movements')
+            .orderBy('date', 'desc')
+            .limit(20)
+            .get();
+        
+        const tbody = document.querySelector('#movementsTable tbody');
+        tbody.innerHTML = '';
+        
+        if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay movimientos registrados</td></tr>';
+        } else {
+            let lastMovement = null;
+            snapshot.forEach(doc => {
+                const movement = doc.data();
+                const date = movement.date ? new Date(movement.date.seconds * 1000).toLocaleString() : 'N/A';
+                
+                if (!lastMovement) {
+                    lastMovement = `${movement.type} - ${movement.productName}`;
+                    document.getElementById('lastMovement').textContent = lastMovement;
+                }
+                
+                const typeIcon = movement.type === 'entrada' ? '📥' : movement.type === 'salida' ? '📤' : '🔄';
+                const typeColor = movement.type === 'entrada' ? '#16A34A' : '#ef4444';
+                
+                const row = `
+                    <tr>
+                        <td>${date}</td>
+                        <td>${movement.productName || 'N/A'}</td>
+                        <td style="color: ${typeColor};">${typeIcon} ${movement.type}</td>
+                        <td>${movement.quantity || 0}</td>
+                        <td>${movement.responsibleName || currentUser.name || 'Admin'}</td>
+                        <td>${movement.notes || '-'}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading movements:', error);
+    }
+}
+
+function filterByCategory(category) {
+    currentCategory = category;
+    
+    // Update active tab
+    document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent.toLowerCase().includes(category) || (category === 'all' && tab.textContent === 'Todos')) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Filter table rows
+    const rows = document.querySelectorAll('#inventoryTable tbody tr');
+    rows.forEach(row => {
+        if (row.dataset.category) {
+            if (category === 'all' || row.dataset.category === category) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+}
+
+function showAddProduct() {
+    const content = `
+        <form id="addProductForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Código/SKU</label>
+                    <input type="text" name="code" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre del Producto</label>
+                    <input type="text" name="name" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea name="description" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select name="category" required>
+                        <option value="medicamentos">Medicamentos</option>
+                        <option value="suplementos">Suplementos</option>
+                        <option value="equipos">Equipos</option>
+                        <option value="consumibles">Consumibles</option>
+                        <option value="otros">Otros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Unidad de Medida</label>
+                    <select name="unit">
+                        <option value="unidad">Unidad</option>
+                        <option value="caja">Caja</option>
+                        <option value="frasco">Frasco</option>
+                        <option value="paquete">Paquete</option>
+                        <option value="kg">Kilogramo</option>
+                        <option value="litro">Litro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Stock Inicial</label>
+                    <input type="number" name="stock" min="0" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" name="minStock" min="0" value="5" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Precio Unitario</label>
+                    <input type="number" name="price" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Proveedor</label>
+                    <input type="text" name="supplier" placeholder="Nombre del proveedor">
+                </div>
+            </div>
+            <button type="submit" class="btn">Agregar Producto</button>
+        </form>
+    `;
+    
+    showModal('Agregar Producto', content);
+    
+    document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        try {
+            const productData = {
+                code: formData.get('code'),
+                name: formData.get('name'),
+                description: formData.get('description'),
+                category: formData.get('category'),
+                unit: formData.get('unit'),
+                stock: parseInt(formData.get('stock')),
+                minStock: parseInt(formData.get('minStock')),
+                price: parseFloat(formData.get('price')),
+                supplier: formData.get('supplier'),
+                active: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: currentUser.uid
+            };
+            
+            const docRef = await db.collection('products').add(productData);
+            
+            // Register initial stock movement
+            if (productData.stock > 0) {
+                await db.collection('inventory_movements').add({
+                    productId: docRef.id,
+                    productName: productData.name,
+                    type: 'entrada',
+                    quantity: productData.stock,
+                    responsibleId: currentUser.uid,
+                    responsibleName: currentUser.name || currentUser.email,
+                    notes: 'Stock inicial',
+                    date: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            closeModal();
+            loadInventory();
+            alert('Producto agregado exitosamente');
+        } catch (error) {
+            alert('Error al agregar producto: ' + error.message);
+        }
+    });
+}
+
+function showAdjustStock(productId) {
+    db.collection('products').doc(productId).get().then(doc => {
+        const product = doc.data();
+        
+        const content = `
+            <form id="adjustStockForm">
+                <h3>${product.name}</h3>
+                <p>Stock actual: <strong>${product.stock}</strong></p>
+                
+                <div class="form-group">
+                    <label>Tipo de Movimiento</label>
+                    <select name="type" required>
+                        <option value="entrada">Entrada (Agregar stock)</option>
+                        <option value="salida">Salida (Reducir stock)</option>
+                        <option value="ajuste">Ajuste de inventario</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad</label>
+                    <input type="number" name="quantity" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Motivo/Notas</label>
+                    <textarea name="notes" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required></textarea>
+                </div>
+                <button type="submit" class="btn">Confirmar Movimiento</button>
+            </form>
+        `;
+        
+        showModal('Ajustar Stock', content);
+        
+        document.getElementById('adjustStockForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const movementType = formData.get('type');
+                const quantity = parseInt(formData.get('quantity'));
+                let newStock = product.stock;
+                
+                if (movementType === 'entrada') {
+                    newStock += quantity;
+                } else if (movementType === 'salida') {
+                    newStock -= quantity;
+                    if (newStock < 0) {
+                        alert('No hay suficiente stock disponible');
+                        return;
+                    }
+                } else if (movementType === 'ajuste') {
+                    newStock = quantity;
+                }
+                
+                // Update product stock
+                await db.collection('products').doc(productId).update({
+                    stock: newStock,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Register movement
+                await db.collection('inventory_movements').add({
+                    productId: productId,
+                    productName: product.name,
+                    type: movementType,
+                    quantity: quantity,
+                    previousStock: product.stock,
+                    newStock: newStock,
+                    responsibleId: currentUser.uid,
+                    responsibleName: currentUser.name || currentUser.email,
+                    notes: formData.get('notes'),
+                    date: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                closeModal();
+                loadInventory();
+                alert('Stock actualizado exitosamente');
+            } catch (error) {
+                alert('Error al actualizar stock: ' + error.message);
+            }
+        });
+    });
+}
+
+function showLowStockAlert() {
+    db.collection('products').where('stock', '<=', 'minStock').get().then(snapshot => {
+        if (snapshot.empty) {
+            alert('✅ No hay productos con stock bajo en este momento');
+            return;
+        }
+        
+        let alertContent = '<h3 style="color: #ef4444; margin-bottom: 20px;">⚠️ Productos con Stock Bajo</h3>';
+        alertContent += '<table style="width: 100%;">';
+        alertContent += '<thead><tr><th>Producto</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Acción</th></tr></thead>';
+        alertContent += '<tbody>';
+        
+        snapshot.forEach(doc => {
+            const product = doc.data();
+            if (product.stock <= product.minStock) {
+                alertContent += `
+                    <tr>
+                        <td>${product.name}</td>
+                        <td style="color: #ef4444; font-weight: bold;">${product.stock}</td>
+                        <td>${product.minStock}</td>
+                        <td><button class="action-btn" style="background: #16A34A; color: white;" onclick="closeModal(); showAdjustStock('${doc.id}')">Reabastecer</button></td>
+                    </tr>
+                `;
+            }
+        });
+        
+        alertContent += '</tbody></table>';
+        showModal('Alerta de Stock Bajo', alertContent);
+    });
+}
+
+function deleteProduct(id) {
+    if (confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')) {
+        db.collection('products').doc(id).delete().then(() => {
+            loadInventory();
+            alert('Producto eliminado exitosamente');
+        }).catch(error => {
+            alert('Error al eliminar producto: ' + error.message);
+        });
+    }
+}
+
+function editProduct(id) {
+    db.collection('products').doc(id).get().then(doc => {
+        const product = doc.data();
+        
+        const content = `
+            <form id="editProductForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Código/SKU</label>
+                        <input type="text" name="code" value="${product.code || ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre del Producto</label>
+                        <input type="text" name="name" value="${product.name || ''}" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea name="description" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">${product.description || ''}</textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select name="category" required>
+                            <option value="medicamentos" ${product.category === 'medicamentos' ? 'selected' : ''}>Medicamentos</option>
+                            <option value="suplementos" ${product.category === 'suplementos' ? 'selected' : ''}>Suplementos</option>
+                            <option value="equipos" ${product.category === 'equipos' ? 'selected' : ''}>Equipos</option>
+                            <option value="consumibles" ${product.category === 'consumibles' ? 'selected' : ''}>Consumibles</option>
+                            <option value="otros" ${product.category === 'otros' ? 'selected' : ''}>Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Mínimo</label>
+                        <input type="number" name="minStock" min="0" value="${product.minStock || 0}" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Precio Unitario</label>
+                        <input type="number" name="price" min="0" step="0.01" value="${product.price || 0}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <input type="text" name="supplier" value="${product.supplier || ''}" placeholder="Nombre del proveedor">
+                    </div>
+                </div>
+                <button type="submit" class="btn">Guardar Cambios</button>
+            </form>
+        `;
+        
+        showModal('Editar Producto', content);
+        
+        document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                await db.collection('products').doc(id).update({
+                    code: formData.get('code'),
+                    name: formData.get('name'),
+                    description: formData.get('description'),
+                    category: formData.get('category'),
+                    minStock: parseInt(formData.get('minStock')),
+                    price: parseFloat(formData.get('price')),
+                    supplier: formData.get('supplier'),
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                closeModal();
+                loadInventory();
+                alert('Producto actualizado exitosamente');
+            } catch (error) {
+                alert('Error al actualizar producto: ' + error.message);
+            }
+        });
+    });
+}
+
+// Add sample products
+async function addSampleProducts() {
+    const sampleProducts = [
+        {
+            code: 'MED001',
+            name: 'Ibuprofeno 400mg',
+            description: 'Antiinflamatorio no esteroideo',
+            category: 'medicamentos',
+            unit: 'caja',
+            stock: 50,
+            minStock: 20,
+            price: 8.50,
+            supplier: 'Farmacéutica Nacional'
+        },
+        {
+            code: 'SUP001',
+            name: 'Vitamina C 1000mg',
+            description: 'Suplemento vitamínico',
+            category: 'suplementos',
+            unit: 'frasco',
+            stock: 30,
+            minStock: 10,
+            price: 15.00,
+            supplier: 'NutriHealth'
+        },
+        {
+            code: 'EQU001',
+            name: 'Tensómetro Digital',
+            description: 'Medidor de presión arterial automático',
+            category: 'equipos',
+            unit: 'unidad',
+            stock: 5,
+            minStock: 2,
+            price: 45.00,
+            supplier: 'MediEquip'
+        },
+        {
+            code: 'CON001',
+            name: 'Jeringas 5ml',
+            description: 'Jeringas desechables estériles',
+            category: 'consumibles',
+            unit: 'caja',
+            stock: 100,
+            minStock: 50,
+            price: 12.00,
+            supplier: 'Suministros Médicos SA'
+        },
+        {
+            code: 'MED002',
+            name: 'Alcohol 70%',
+            description: 'Solución antiséptica',
+            category: 'medicamentos',
+            unit: 'litro',
+            stock: 20,
+            minStock: 10,
+            price: 5.50,
+            supplier: 'Farmacéutica Nacional'
+        }
+    ];
+    
+    for (const product of sampleProducts) {
+        const docRef = await db.collection('products').add({
+            ...product,
+            active: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Register initial stock
+        if (product.stock > 0) {
+            await db.collection('inventory_movements').add({
+                productId: docRef.id,
+                productName: product.name,
+                type: 'entrada',
+                quantity: product.stock,
+                responsibleName: 'Sistema',
+                notes: 'Inventario inicial',
+                date: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+    }
+    
+    loadInventory();
 }
 
 // Update the appointment creation to send notifications

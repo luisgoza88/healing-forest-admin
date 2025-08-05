@@ -381,6 +381,45 @@
             color: #721c24;
         }
         
+        /* Category tabs */
+        .category-tab {
+            padding: 8px 16px;
+            margin-right: 5px;
+            border: 1px solid #ddd;
+            background: white;
+            color: #666;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            border-bottom: none;
+            transition: all 0.3s;
+        }
+        
+        .category-tab:hover {
+            background: #f8f9fa;
+        }
+        
+        .category-tab.active {
+            background: #16A34A;
+            color: white;
+            border-color: #16A34A;
+        }
+        
+        /* Stock status badges */
+        .stock-ok {
+            color: #16A34A;
+            font-weight: 600;
+        }
+        
+        .stock-low {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+        
+        .stock-out {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -445,6 +484,7 @@
                 <a class="nav-item" data-section="staff">Personal</a>
                 <a class="nav-item" data-section="patients">Pacientes</a>
                 <a class="nav-item" data-section="services">Servicios</a>
+                <a class="nav-item" data-section="inventory">Inventario</a>
                 <a class="nav-item" data-section="payments">Pagos</a>
                 <a class="nav-item" data-section="reports">Reportes</a>
                 <a class="nav-item" data-section="sop">S&OP Planning</a>
@@ -645,6 +685,96 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- Inventory Section -->
+            <div class="content-section" id="inventory">
+                <div class="section-header">
+                    <h2>Gestión de Inventario</h2>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #ef4444;" onclick="showLowStockAlert()">
+                            ⚠️ Stock Bajo
+                        </button>
+                        <button class="add-btn" style="margin-right: 10px; background: #0ea5e9;" onclick="exportTableToExcel('inventoryTable', 'inventario')">
+                            📥 Exportar Excel
+                        </button>
+                        <button class="add-btn" onclick="showAddProduct()">+ Nuevo Producto</button>
+                    </div>
+                </div>
+                
+                <!-- Inventory Stats -->
+                <div class="stats-grid" style="margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <h3>Total Productos</h3>
+                        <div class="value" id="totalProducts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Valor Total</h3>
+                        <div class="value" id="totalInventoryValue">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Productos con Stock Bajo</h3>
+                        <div class="value" id="lowStockCount" style="color: #ef4444;">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Último Movimiento</h3>
+                        <div class="value" id="lastMovement" style="font-size: 16px;">-</div>
+                    </div>
+                </div>
+                
+                <!-- Category Tabs -->
+                <div style="margin-bottom: 20px;">
+                    <button class="category-tab active" onclick="filterByCategory('all')">Todos</button>
+                    <button class="category-tab" onclick="filterByCategory('medicamentos')">Medicamentos</button>
+                    <button class="category-tab" onclick="filterByCategory('suplementos')">Suplementos</button>
+                    <button class="category-tab" onclick="filterByCategory('equipos')">Equipos</button>
+                    <button class="category-tab" onclick="filterByCategory('consumibles')">Consumibles</button>
+                    <button class="category-tab" onclick="filterByCategory('otros')">Otros</button>
+                </div>
+                
+                <!-- Inventory Table -->
+                <table id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Categoría</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mínimo</th>
+                            <th>Precio Unit.</th>
+                            <th>Valor Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="9" class="loading">Cargando productos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- Movement History -->
+                <div style="margin-top: 40px;">
+                    <h3 style="margin-bottom: 20px;">Historial de Movimientos</h3>
+                    <table id="movementsTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Producto</th>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                                <th>Responsable</th>
+                                <th>Notas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="loading">Cargando movimientos...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             
             <!-- Payments Section -->
