@@ -1,7 +1,7 @@
 // WhatsApp Functions Integration
 // This file connects the admin panel to Firebase Cloud Functions
 
-// Cloud Function URL (update after deployment)
+// Cloud Function URL (DEPLOYED AND READY!)
 const WHATSAPP_FUNCTION_URL = 'https://us-central1-healling-forest.cloudfunctions.net/sendWhatsApp';
 
 // Override the sendSingleWhatsAppMessage function to use Cloud Functions
