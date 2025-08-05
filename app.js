@@ -2565,6 +2565,127 @@ async function addSampleProducts() {
 function loadIntegrations() {
     // Check integration status
     checkIntegrationStatus();
+    // Analyze best billing option
+    analyzeBillingRecommendation();
+}
+
+async function analyzeBillingRecommendation() {
+    try {
+        // Get monthly statistics
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const paymentsSnapshot = await db.collection('payments')
+            .where('date', '>=', thirtyDaysAgo)
+            .where('status', '==', 'pagado')
+            .get();
+        
+        const monthlyInvoices = paymentsSnapshot.size;
+        const monthlyRevenue = paymentsSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
+        
+        // Get number of staff and services
+        const [staffSnapshot, servicesSnapshot] = await Promise.all([
+            db.collection('staff').get(),
+            db.collection('services').get()
+        ]);
+        
+        const staffCount = staffSnapshot.size;
+        const servicesCount = servicesSnapshot.size;
+        
+        // Recommendation logic
+        let recommendation = '';
+        let provider = '';
+        
+        if (monthlyInvoices < 50) {
+            provider = 'cadena';
+            recommendation = `
+                <div style="background: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #065f46; margin-bottom: 10px;">🌟 Recomendación: Cadena (GRATIS)</h3>
+                    <p><strong>Razón:</strong> Con ${monthlyInvoices} facturas/mes, estás dentro del plan gratuito de Cadena.</p>
+                    <p><strong>Ahorro:</strong> $960.000 COP/año comparado con Siigo</p>
+                    <p><strong>Tiempo extra requerido:</strong> 2 horas/mes para reportes</p>
+                    <button class="btn" style="margin-top: 10px;" onclick="selectProvider('cadena')">Configurar Cadena Ahora</button>
+                </div>
+            `;
+        } else if (monthlyInvoices >= 50 && monthlyInvoices < 200) {
+            provider = 'cadena';
+            recommendation = `
+                <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #92400e; margin-bottom: 10px;">💡 Recomendación: Cadena o Facture.co</h3>
+                    <p><strong>Razón:</strong> Con ${monthlyInvoices} facturas/mes, aún es rentable usar Cadena ($15.000/mes).</p>
+                    <p><strong>Consideración:</strong> Si necesitas reportes automáticos, considera Facture.co ($25.000/mes)</p>
+                    <p><strong>Ahorro:</strong> $780.000 COP/año con Cadena vs Siigo</p>
+                    <button class="btn" style="margin-top: 10px; margin-right: 10px;" onclick="selectProvider('cadena')">Usar Cadena</button>
+                    <button class="btn" style="margin-top: 10px;" onclick="selectProvider('factureco')">Usar Facture.co</button>
+                </div>
+            `;
+        } else {
+            provider = 'siigo';
+            recommendation = `
+                <div style="background: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #1e3a8a; margin-bottom: 10px;">🚀 Recomendación: Siigo</h3>
+                    <p><strong>Razón:</strong> Con ${monthlyInvoices} facturas/mes y ${staffCount} empleados, necesitas automatización completa.</p>
+                    <p><strong>Beneficios:</strong> Contabilidad automática, nómina integrada, cero reprocesos</p>
+                    <p><strong>ROI:</strong> El tiempo ahorrado (10+ horas/mes) justifica el costo</p>
+                    <button class="btn" style="margin-top: 10px;" onclick="selectProvider('siigo')">Configurar Siigo Ahora</button>
+                </div>
+            `;
+        }
+        
+        // Add analysis summary
+        const analysisHTML = `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px;">📊 Análisis de tu Operación</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div>
+                        <strong>Facturas/mes:</strong><br>
+                        <span style="font-size: 24px; color: #16A34A;">${monthlyInvoices}</span>
+                    </div>
+                    <div>
+                        <strong>Ingresos/mes:</strong><br>
+                        <span style="font-size: 24px; color: #16A34A;">$${monthlyRevenue.toLocaleString()}</span>
+                    </div>
+                    <div>
+                        <strong>Personal:</strong><br>
+                        <span style="font-size: 24px; color: #16A34A;">${staffCount}</span>
+                    </div>
+                    <div>
+                        <strong>Servicios:</strong><br>
+                        <span style="font-size: 24px; color: #16A34A;">${servicesCount}</span>
+                    </div>
+                </div>
+            </div>
+            ${recommendation}
+        `;
+        
+        // Insert analysis in the integrations page
+        const integrationsSection = document.getElementById('integrations');
+        if (integrationsSection && integrationsSection.classList.contains('active')) {
+            const existingAnalysis = document.getElementById('billingAnalysis');
+            if (existingAnalysis) {
+                existingAnalysis.innerHTML = analysisHTML;
+            } else {
+                const analysisDiv = document.createElement('div');
+                analysisDiv.id = 'billingAnalysis';
+                analysisDiv.innerHTML = analysisHTML;
+                integrationsSection.insertBefore(analysisDiv, integrationsSection.children[1]);
+            }
+        }
+    } catch (error) {
+        console.error('Error analyzing billing recommendation:', error);
+    }
+}
+
+function selectProvider(provider) {
+    // Auto-select the provider in the configuration form
+    configureSiigo();
+    setTimeout(() => {
+        const providerSelect = document.querySelector('select[name="provider"]');
+        if (providerSelect) {
+            providerSelect.value = provider;
+            updateBillingFields(provider);
+        }
+    }, 100);
 }
 
 function checkIntegrationStatus() {
@@ -2584,8 +2705,28 @@ function checkIntegrationStatus() {
 function configureSiigo() {
     const content = `
         <form id="siigoConfigForm">
-            <h3>Configuración de Siigo API</h3>
-            <p style="color: #666; margin-bottom: 20px;">Ingresa tus credenciales de Siigo para conectar la facturación electrónica.</p>
+            <h3>Configuración de Facturación Electrónica</h3>
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;">💡 Recomendación para Healing Forest:</h4>
+                <p style="margin: 5px 0;"><strong>Menos de 200 facturas/mes:</strong> Usa Cadena (gratis)</p>
+                <p style="margin: 5px 0;"><strong>Más de 200 facturas/mes:</strong> Usa Siigo (automatizado)</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Proveedor de Facturación</label>
+                <select name="provider" onchange="updateBillingFields(this.value)" required>
+                    <option value="">Seleccionar proveedor</option>
+                    <option value="siigo">Siigo (Completo - Recomendado para grandes)</option>
+                    <option value="cadena">Cadena (Económico - Recomendado para iniciar)</option>
+                    <option value="factureco">Facture.co (Intermedio)</option>
+                </select>
+            </div>
+            
+            <div id="billingProviderFields">
+                <!-- Dynamic fields based on provider -->
+            </div>
+            
+            <p style="color: #666; margin-bottom: 20px;">Selecciona el proveedor que mejor se adapte a tu volumen de facturación.</p>
             
             <div class="form-group">
                 <label>API Key de Siigo</label>
@@ -2722,6 +2863,71 @@ function configureWhatsApp() {
     `;
     
     showModal('Configurar WhatsApp Business', content);
+}
+
+function updateBillingFields(provider) {
+    const fieldsDiv = document.getElementById('billingProviderFields');
+    
+    if (provider === 'siigo') {
+        fieldsDiv.innerHTML = `
+            <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <strong>💰 Costo:</strong> $80.000 - $150.000/mes<br>
+                <strong>✅ Incluye:</strong> Contabilidad, nómina, reportes automáticos<br>
+                <strong>⏱ Tiempo de setup:</strong> 1-2 días
+            </div>
+            <div class="form-group">
+                <label>API Key de Siigo</label>
+                <input type="text" name="apiKey" placeholder="Tu API Key de Siigo" required>
+            </div>
+            <div class="form-group">
+                <label>Partner ID</label>
+                <input type="text" name="partnerId" placeholder="Partner ID proporcionado por Siigo" required>
+            </div>
+            <div class="form-group">
+                <label>Ambiente</label>
+                <select name="environment">
+                    <option value="sandbox">Sandbox (Pruebas)</option>
+                    <option value="production">Producción</option>
+                </select>
+            </div>
+        `;
+    } else if (provider === 'cadena') {
+        fieldsDiv.innerHTML = `
+            <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <strong>💰 Costo:</strong> GRATIS (primeras 50/mes), luego $15.000<br>
+                <strong>✅ Incluye:</strong> Facturación electrónica básica<br>
+                <strong>⏱ Tiempo de setup:</strong> 30 minutos
+            </div>
+            <div class="form-group">
+                <label>Token API de Cadena</label>
+                <input type="text" name="apiToken" placeholder="Token proporcionado por Cadena" required>
+            </div>
+            <div class="form-group">
+                <label>NIT de tu Empresa</label>
+                <input type="text" name="nit" placeholder="NIT sin puntos ni guiones" required>
+            </div>
+            <div class="form-group">
+                <label>Resolución DIAN</label>
+                <input type="text" name="dianResolution" placeholder="Número de resolución" required>
+            </div>
+        `;
+    } else if (provider === 'factureco') {
+        fieldsDiv.innerHTML = `
+            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <strong>💰 Costo:</strong> $25.000 - $40.000/mes<br>
+                <strong>✅ Incluye:</strong> Facturación + Reportes básicos<br>
+                <strong>⏱ Tiempo de setup:</strong> 1 día
+            </div>
+            <div class="form-group">
+                <label>Usuario API</label>
+                <input type="text" name="apiUser" required>
+            </div>
+            <div class="form-group">
+                <label>Clave API</label>
+                <input type="password" name="apiPassword" required>
+            </div>
+        `;
+    }
 }
 
 function updateWhatsAppFields(provider) {
