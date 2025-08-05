@@ -597,15 +597,12 @@ async function loadServices() {
         } else {
             snapshot.forEach(doc => {
                 const service = doc.data();
-                // Check if this service has capacity management
-                const serviceKey = doc.id.toLowerCase();
-                const hasCapacityManagement = service.hasCapacityManagement || 
-                    ['yoga', 'masaje', 'massage', 'sauna', 'camara_hiperbarica', 'hyperbaric', 'sueros', 'iv_therapy'].some(key => 
-                        serviceKey.includes(key) || service.name.toLowerCase().includes(key)
-                    );
-                const capacityInfo = service.maxParticipants ? 
-                    { capacity: service.maxParticipants, type: service.isGroupService ? 'group' : 'individual' } : 
-                    null;
+                // ALL services have capacity management
+                const hasCapacityManagement = true; // Todos los servicios tienen calendario
+                const capacityInfo = { 
+                    capacity: service.maxParticipants || 1, 
+                    type: service.isGroupService ? 'group' : 'individual' 
+                };
                 
                 const row = `
                     <tr>
@@ -896,9 +893,9 @@ function configureServiceSchedule(serviceId) {
     alert('Función para configurar horarios semanales - En desarrollo');
 }
 
-// Update existing services with capacity info
+// Update ALL services with capacity info
 async function updateServicesWithCapacity() {
-    console.log('Actualizando servicios con información de capacidad...');
+    console.log('Actualizando TODOS los servicios con información de capacidad...');
     
     const capacityMap = {
         'yoga': { maxParticipants: 16, isGroupService: true },
@@ -931,26 +928,32 @@ async function updateServicesWithCapacity() {
                 }
             }
             
-            if (capacityConfig && !service.hasCapacityManagement) {
-                batch.update(doc.ref, {
-                    ...capacityConfig,
-                    hasCapacityManagement: true,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                updateCount++;
-                console.log(`Actualizando ${service.name} con capacidad ${capacityConfig.maxParticipants}`);
+            // If no specific config, use default (1 person)
+            if (!capacityConfig) {
+                capacityConfig = { maxParticipants: 1, isGroupService: false };
             }
+            
+            // Update ALL services, even if they already have hasCapacityManagement
+            batch.update(doc.ref, {
+                ...capacityConfig,
+                hasCapacityManagement: true,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            updateCount++;
+            console.log(`Actualizando ${service.name} con capacidad ${capacityConfig.maxParticipants}`);
         });
         
         if (updateCount > 0) {
             await batch.commit();
             console.log(`✅ ${updateCount} servicios actualizados con información de capacidad`);
+            alert(`✅ ${updateCount} servicios actualizados! Recargando...`);
             loadServices(); // Reload services
         } else {
             console.log('No hay servicios para actualizar');
         }
     } catch (error) {
         console.error('Error actualizando servicios:', error);
+        alert('Error al actualizar servicios: ' + error.message);
     }
 }
 
