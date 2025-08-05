@@ -186,8 +186,67 @@ async function loadDashboardData() {
         
         // Load charts
         loadCharts();
+        
+        // Load service availability summary
+        loadServiceAvailabilitySummary();
     } catch (error) {
         console.error('Error loading dashboard data:', error);
+    }
+}
+
+// Load service availability summary for dashboard
+async function loadServiceAvailabilitySummary() {
+    try {
+        const container = document.getElementById('serviceAvailabilityGrid');
+        if (!container || !window.serviceCapacity) return;
+        
+        container.innerHTML = '';
+        const today = new Date();
+        
+        // Load availability for each service with capacity management
+        for (const [serviceId, serviceConfig] of Object.entries(window.serviceCapacity.SERVICE_CAPACITY)) {
+            try {
+                const availability = await window.serviceCapacity.getServiceAvailability(serviceId, today);
+                
+                // Calculate total available spots for today
+                const totalAvailable = availability.summary.totalAvailable;
+                const totalCapacity = availability.summary.totalCapacity;
+                const percentUsed = totalCapacity > 0 ? Math.round(((totalCapacity - totalAvailable) / totalCapacity) * 100) : 0;
+                
+                // Determine color based on availability
+                let bgColor = '#D1FAE5'; // Green background
+                let textColor = '#065F46'; // Green text
+                if (percentUsed >= 90) {
+                    bgColor = '#FEE2E2'; // Red background
+                    textColor = '#991B1B'; // Red text
+                } else if (percentUsed >= 75) {
+                    bgColor = '#FEF3C7'; // Yellow background
+                    textColor = '#92400E'; // Yellow text
+                }
+                
+                const card = `
+                    <div style="background: ${bgColor}; padding: 15px; border-radius: 8px; cursor: pointer;" 
+                         onclick="window.serviceCalendar.showServiceCalendar('${serviceId}')">
+                        <h4 style="margin: 0 0 10px 0; color: ${textColor};">${serviceConfig.name}</h4>
+                        <div style="font-size: 24px; font-weight: bold; color: ${textColor};">
+                            ${totalAvailable}/${totalCapacity}
+                        </div>
+                        <div style="font-size: 12px; color: ${textColor}; margin-top: 5px;">
+                            espacios disponibles
+                        </div>
+                        <div style="margin-top: 10px; background: white; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${percentUsed}%; background: ${textColor};"></div>
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML += card;
+            } catch (error) {
+                console.error(`Error loading availability for ${serviceId}:`, error);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading service availability summary:', error);
     }
 }
 
@@ -512,6 +571,11 @@ async function loadPatients() {
 // Load services
 async function loadServices() {
     try {
+        // Initialize service schedules if needed
+        if (window.serviceCapacity) {
+            await window.serviceCapacity.initializeServiceSchedules();
+        }
+        
         const snapshot = await db.collection('services').get();
         
         const tbody = document.querySelector('#servicesTable tbody');
@@ -533,14 +597,22 @@ async function loadServices() {
         } else {
             snapshot.forEach(doc => {
                 const service = doc.data();
+                // Check if this service has capacity management
+                const hasCapacityManagement = window.serviceCapacity && window.serviceCapacity.SERVICE_CAPACITY[doc.id];
+                const capacityInfo = hasCapacityManagement ? window.serviceCapacity.SERVICE_CAPACITY[doc.id] : null;
+                
                 const row = `
                     <tr>
                         <td>${service.name || 'N/A'}</td>
                         <td>${service.category || 'N/A'}</td>
                         <td>${service.duration || 'N/A'} min</td>
                         <td>$${service.price || 'N/A'}</td>
-                        <td>${service.active ? 'Activo' : 'Inactivo'}</td>
                         <td>
+                            ${service.active ? '<span style="color: #16A34A;">Activo</span>' : '<span style="color: #DC2626;">Inactivo</span>'}
+                            ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
+                        </td>
+                        <td>
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="window.serviceCalendar.showServiceCalendar('${doc.id}')">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -557,16 +629,17 @@ async function loadServices() {
 // Add default services
 async function addDefaultServices() {
     const defaultServices = [
-        { name: 'Consulta Médica General', category: 'Medicina', duration: 30, price: 50, active: true },
-        { name: 'Terapia Psicológica', category: 'Psicología', duration: 60, price: 80, active: true },
-        { name: 'Fisioterapia', category: 'Rehabilitación', duration: 45, price: 70, active: true },
-        { name: 'Nutrición', category: 'Salud', duration: 45, price: 60, active: true },
-        { name: 'Yoga Terapéutico', category: 'Bienestar', duration: 60, price: 40, active: true }
+        { id: 'yoga', name: 'Yoga Terapéutico', category: 'Bienestar', duration: 60, price: 40, active: true },
+        { id: 'massage', name: 'Masajes', category: 'Bienestar', duration: 60, price: 80, active: true },
+        { id: 'sauna', name: 'Sauna', category: 'Bienestar', duration: 45, price: 50, active: true },
+        { id: 'hyperbaric', name: 'Cámara Hiperbárica', category: 'Medicina', duration: 90, price: 120, active: true },
+        { id: 'iv_therapy', name: 'Terapia IV', category: 'Medicina', duration: 45, price: 100, active: true }
     ];
     
     for (const service of defaultServices) {
-        await db.collection('services').add({
-            ...service,
+        const { id, ...serviceData } = service;
+        await db.collection('services').doc(id).set({
+            ...serviceData,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
     }
@@ -805,7 +878,7 @@ async function showAddAppointment(preselectedDate = null) {
             </div>
             <div class="form-group">
                 <label>Servicio</label>
-                <select name="serviceId" required>${servicesOptions}</select>
+                <select name="serviceId" required onchange="updateAvailableSlots(this.value)">${servicesOptions}</select>
             </div>
             <div class="form-group">
                 <label>Profesional</label>
@@ -818,10 +891,10 @@ async function showAddAppointment(preselectedDate = null) {
                 </div>
                 <div class="form-group">
                     <label>Hora</label>
-                    <select name="time" required>
-                        <option value="">Seleccionar hora</option>
-                        ${generateTimeOptions()}
+                    <select name="time" required id="timeSelect">
+                        <option value="">Seleccionar servicio primero</option>
                     </select>
+                    <div id="slotAvailability" style="margin-top: 5px; font-size: 12px;"></div>
                 </div>
             </div>
             <div class="form-group">
@@ -830,6 +903,9 @@ async function showAddAppointment(preselectedDate = null) {
             </div>
             <button type="submit" class="btn">Agendar Cita</button>
         </form>
+        <div id="capacityWarning" style="margin-top: 15px; padding: 10px; background: #FEF3C7; border-radius: 6px; display: none;">
+            <strong style="color: #92400E;">⚠️ Aviso:</strong> <span id="warningMessage"></span>
+        </div>
     `;
     
     showModal('Nueva Cita', content);
@@ -839,21 +915,36 @@ async function showAddAppointment(preselectedDate = null) {
         const formData = new FormData(e.target);
         
         try {
+            const serviceId = formData.get('serviceId');
+            const date = new Date(formData.get('date'));
+            const time = formData.get('time');
+            const patientId = formData.get('patientId');
+            
+            // Validate booking if service has capacity management
+            if (window.serviceCapacity && window.serviceCapacity.SERVICE_CAPACITY[serviceId]) {
+                const validation = await window.serviceCapacity.validateBooking(serviceId, date, time, patientId);
+                
+                if (!validation.valid) {
+                    alert(`No se puede agendar la cita: ${validation.reason}`);
+                    return;
+                }
+            }
+            
             // Get selected data
-            const patientDoc = await db.collection('users').doc(formData.get('patientId')).get();
+            const patientDoc = await db.collection('users').doc(patientId).get();
             const staffDoc = await db.collection('staff').doc(formData.get('staffId')).get();
-            const serviceDoc = await db.collection('services').doc(formData.get('serviceId')).get();
+            const serviceDoc = await db.collection('services').doc(serviceId).get();
             
             const appointmentData = {
-                patientId: formData.get('patientId'),
+                patientId: patientId,
                 patientName: patientDoc.data().name || patientDoc.data().email,
                 patientPhone: patientDoc.data().phone || '',
                 staffId: formData.get('staffId'),
                 staffName: staffDoc.data().name,
-                serviceId: formData.get('serviceId'),
+                serviceId: serviceId,
                 service: serviceDoc.data().name,
-                date: firebase.firestore.Timestamp.fromDate(new Date(formData.get('date'))),
-                time: formData.get('time'),
+                date: firebase.firestore.Timestamp.fromDate(date),
+                time: time,
                 notes: formData.get('notes'),
                 status: 'pendiente',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -895,6 +986,78 @@ function generateTimeOptions() {
 function showAddAppointmentForDate(dateStr) {
     showAddAppointment(dateStr);
 }
+
+// Update available slots based on selected service and date
+async function updateAvailableSlots(serviceId) {
+    const dateInput = document.querySelector('input[name="date"]');
+    const timeSelect = document.getElementById('timeSelect');
+    const slotAvailability = document.getElementById('slotAvailability');
+    
+    if (!serviceId || !dateInput || !timeSelect) return;
+    
+    const date = new Date(dateInput.value);
+    
+    // Check if service has capacity management
+    if (window.serviceCapacity && window.serviceCapacity.SERVICE_CAPACITY[serviceId]) {
+        try {
+            timeSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+            
+            const availability = await window.serviceCapacity.getServiceAvailability(serviceId, date);
+            
+            let options = '<option value="">Seleccionar hora</option>';
+            let hasAvailableSlots = false;
+            
+            for (const slot of availability.slots) {
+                if (slot.enabled) {
+                    const isAvailable = slot.available > 0;
+                    hasAvailableSlots = hasAvailableSlots || isAvailable;
+                    
+                    let statusText = '';
+                    let statusColor = '';
+                    
+                    if (slot.available === 0) {
+                        statusText = ' (LLENO)';
+                        statusColor = 'color: #DC2626;';
+                    } else if (slot.available <= 2) {
+                        statusText = ` (${slot.available} espacios)`;
+                        statusColor = 'color: #F59E0B;';
+                    } else {
+                        statusText = ` (${slot.available} espacios)`;
+                        statusColor = 'color: #16A34A;';
+                    }
+                    
+                    options += `<option value="${slot.time}" ${!isAvailable ? 'disabled' : ''} style="${statusColor}">${slot.time}${statusText}</option>`;
+                }
+            }
+            
+            timeSelect.innerHTML = options;
+            
+            if (!hasAvailableSlots) {
+                document.getElementById('capacityWarning').style.display = 'block';
+                document.getElementById('warningMessage').textContent = 'No hay espacios disponibles para este servicio en la fecha seleccionada.';
+            } else {
+                document.getElementById('capacityWarning').style.display = 'none';
+            }
+            
+        } catch (error) {
+            console.error('Error loading available slots:', error);
+            timeSelect.innerHTML = generateTimeOptions();
+        }
+    } else {
+        // Service without capacity management - show all time slots
+        timeSelect.innerHTML = generateTimeOptions();
+    }
+}
+
+// Update slots when date changes
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'date' && document.getElementById('addAppointmentForm')) {
+        const serviceSelect = document.querySelector('select[name="serviceId"]');
+        if (serviceSelect && serviceSelect.value) {
+            updateAvailableSlots(serviceSelect.value);
+        }
+    }
+});
 
 // View appointment details
 async function viewAppointmentDetails(appointmentId) {

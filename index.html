@@ -426,6 +426,46 @@
             gap: 15px;
         }
         
+        /* Service calendar styles */
+        .fc-event {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .fc-event:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Capacity indicator styles */
+        .capacity-full {
+            background-color: #DC2626 !important;
+            border-color: #991B1B !important;
+        }
+        
+        .capacity-almost-full {
+            background-color: #F59E0B !important;
+            border-color: #D97706 !important;
+        }
+        
+        .capacity-available {
+            background-color: #16A34A !important;
+            border-color: #15803D !important;
+        }
+        
+        /* Service availability card hover */
+        #serviceAvailabilityGrid > div:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        
+        /* Loading spinner animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         @media (max-width: 768px) {
             .sidebar {
                 width: 200px;
@@ -534,6 +574,14 @@
                     <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
                         <h3 style="margin-bottom: 20px;">Servicios Más Solicitados</h3>
                         <canvas id="servicesChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Service Availability Summary -->
+                <div style="margin-top: 40px; margin-bottom: 30px;">
+                    <h2 style="margin-bottom: 20px;">Disponibilidad de Servicios Hoy</h2>
+                    <div id="serviceAvailabilityGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <!-- Service availability cards will be loaded here -->
                     </div>
                 </div>
                 
@@ -679,7 +727,7 @@
                             <th>Categoría</th>
                             <th>Duración</th>
                             <th>Precio</th>
-                            <th>Estado</th>
+                            <th>Estado / Capacidad</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -1290,6 +1338,8 @@ _Responde STOP para no recibir más mensajes_</textarea>
     </div>
     
     <script src="app.js"></script>
+    <script src="service_capacity.js"></script>
+    <script src="service_calendar.js"></script>
     <script src="siigo_integration.js"></script>
     <script src="whatsapp_automation.js"></script>
     <script src="whatsapp_functions.js"></script>
