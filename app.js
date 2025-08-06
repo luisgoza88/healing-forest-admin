@@ -85,6 +85,9 @@ function showSection(section) {
         case 'appointments':
             loadAppointments();
             break;
+        case 'resources':
+            loadResourcesView();
+            break;
         case 'staff':
             loadStaff();
             break;
@@ -992,6 +995,93 @@ async function updateServicesWithCapacity() {
 // Auto-update services on load if needed
 if (window.location.hash === '#update-capacity') {
     updateServicesWithCapacity();
+}
+
+// RESOURCES VIEW FUNCTIONS
+let resourceTimelineCalendar = null;
+let occupancyHeatmap = null;
+
+// Load resources timeline view
+async function loadResourcesView() {
+    console.log('Loading resources view...');
+    
+    // Initialize timeline after a short delay to ensure container is visible
+    setTimeout(() => {
+        if (!resourceTimelineCalendar) {
+            resourceTimelineCalendar = window.calendarEnhancements.createResourceTimeline('resourceTimelineContainer');
+        } else {
+            resourceTimelineCalendar.refetchEvents();
+        }
+    }, 100);
+}
+
+// Refresh resource timeline
+function refreshResourceTimeline() {
+    if (resourceTimelineCalendar) {
+        resourceTimelineCalendar.refetchEvents();
+        widgets.showSuccess('Timeline actualizado');
+    }
+}
+
+// Show occupancy heatmap
+function showOccupancyHeatmap() {
+    const container = document.getElementById('heatmapContainer');
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+    
+    if (container.style.display === 'block' && !occupancyHeatmap) {
+        occupancyHeatmap = window.calendarEnhancements.createOccupancyHeatmap('occupancyHeatmap');
+    }
+}
+
+// View appointments for a specific day
+window.viewDayAppointments = async function(dateStr) {
+    const date = new Date(dateStr);
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    try {
+        const snapshot = await db.collection('appointments')
+            .where('date', '>=', startOfDay)
+            .where('date', '<=', endOfDay)
+            .get();
+        
+        let html = '<div style="max-height: 400px; overflow-y: auto;">';
+        
+        if (snapshot.empty) {
+            html += '<p>No hay citas para este día</p>';
+        } else {
+            html += '<table style="width: 100%;">';
+            html += '<thead><tr><th>Hora</th><th>Paciente</th><th>Servicio</th><th>Estado</th></tr></thead>';
+            html += '<tbody>';
+            
+            snapshot.forEach(doc => {
+                const apt = doc.data();
+                html += `<tr>
+                    <td>${apt.time || 'N/A'}</td>
+                    <td>${apt.patientName || 'N/A'}</td>
+                    <td>${apt.serviceName || 'N/A'}</td>
+                    <td>${apt.status || 'pending'}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+        }
+        
+        html += '</div>';
+        
+        Swal.fire({
+            title: `Citas del ${moment(date).format('DD/MM/YYYY')}`,
+            html: html,
+            width: 600,
+            confirmButtonColor: '#16A34A'
+        });
+        
+    } catch (error) {
+        console.error('Error loading day appointments:', error);
+        widgets.showError('Error al cargar las citas');
+    }
 }
 
 // Add Staff Modal

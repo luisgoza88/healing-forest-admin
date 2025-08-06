@@ -560,6 +560,7 @@
             <nav>
                 <a class="nav-item active" data-section="overview">Dashboard</a>
                 <a class="nav-item" data-section="appointments">Citas</a>
+                <a class="nav-item" data-section="resources">Vista de Recursos</a>
                 <a class="nav-item" data-section="staff">Personal</a>
                 <a class="nav-item" data-section="patients">Pacientes</a>
                 <a class="nav-item" data-section="services">Servicios</a>
@@ -641,6 +642,38 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- Resources Timeline Section -->
+            <div class="content-section" id="resources">
+                <div class="section-header">
+                    <h2>Vista de Recursos - Timeline</h2>
+                    <div>
+                        <button class="add-btn" style="margin-right: 10px; background: #F59E0B;" onclick="showOccupancyHeatmap()">
+                            📊 Ver Mapa de Calor
+                        </button>
+                        <button class="add-btn" onclick="refreshResourceTimeline()">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="background: #E0F2FE; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p><strong>Vista Timeline:</strong> Visualiza todos los profesionales y salas en una línea de tiempo. Arrastra las citas para reprogramar.</p>
+                </div>
+                
+                <div id="resourceTimelineContainer" style="background: white; padding: 20px; border-radius: 8px; min-height: 600px;"></div>
+                
+                <!-- Occupancy Heatmap Modal -->
+                <div id="heatmapContainer" style="display: none; margin-top: 30px;">
+                    <h3 style="margin-bottom: 20px;">Mapa de Calor - Ocupación Histórica</h3>
+                    <div id="occupancyHeatmap"></div>
+                    <div style="margin-top: 20px;">
+                        <p style="color: #666; font-size: 14px;">
+                            <strong>Cómo leer:</strong> Los días más oscuros tienen más citas. Haz click en cualquier día para ver detalles.
+                        </p>
+                    </div>
+                </div>
             </div>
             
             <!-- Appointments Section -->
@@ -1395,6 +1428,7 @@ _Responde STOP para no recibir más mensajes_</textarea>
     <script src="app.js"></script>
     <script src="widgets_helpers.js"></script>
     <script src="dashboard_widgets_demo.js"></script>
+    <script src="calendar_enhancements.js"></script>
     <script src="service_capacity.js"></script>
     <script src="service_calendar.js"></script>
     <script src="siigo_integration.js"></script>
@@ -1416,6 +1450,29 @@ _Responde STOP para no recibir más mensajes_</textarea>
     
     <!-- SweetAlert2 para modales bonitos -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Flatpickr para date/time picker avanzado -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_green.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    
+    <!-- Cal-HeatMap para visualización de ocupación -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/cal-heatmap/dist/cal-heatmap.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/cal-heatmap/dist/cal-heatmap.css">
+    
+    <!-- Moment.js para manejo de fechas -->
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/locale/es.js"></script>
+    
+    <!-- Socket.io para tiempo real -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    
+    <!-- FullCalendar Resource Timeline -->
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/resource@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/resource-timeline@5.11.3/main.min.js'></script>
+    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/resource-timeline@5.11.3/main.min.css' rel='stylesheet' />
     
     <!-- FullCalendar para calendario: -->
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
