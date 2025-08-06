@@ -188,13 +188,37 @@ async function getServiceAvailability(serviceId, date) {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Get all bookings for this service on this date
-    const bookingsSnapshot = await db
-      .collection('appointments')
-      .where('serviceId', '==', serviceId)
-      .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
-      .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
-      .where('status', 'in', ['pendiente', 'confirmado'])
-      .get();
+    let bookingsSnapshot;
+    try {
+      bookingsSnapshot = await db
+        .collection('appointments')
+        .where('serviceId', '==', serviceId)
+        .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
+        .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
+        .where('status', 'in', ['pendiente', 'confirmado'])
+        .get();
+    } catch (indexError) {
+      // If index doesn't exist, use a simpler query
+      Logger.log('Index missing, using simpler query for service availability');
+      bookingsSnapshot = await db
+        .collection('appointments')
+        .where('serviceId', '==', serviceId)
+        .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
+        .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
+        .get();
+      
+      // Filter results in memory
+      bookingsSnapshot = {
+        docs: bookingsSnapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.status === 'pendiente' || data.status === 'confirmado';
+        }),
+        size: bookingsSnapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.status === 'pendiente' || data.status === 'confirmado';
+        }).length
+      };
+    }
 
     // Get the schedule template
     const scheduleDoc = await db
