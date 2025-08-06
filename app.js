@@ -4354,8 +4354,6 @@ async function sendSingleWhatsAppMessage(recipient, message) {
     .replace('{fecha}', new Date().toLocaleDateString())
     .replace('{hora}', '10:00 AM')
     .replace('{doctor}', 'Dr. Martínez');
-
-  try {
     // Save to Firebase
     const logEntry = {
       to: recipient.phone,
@@ -4403,6 +4401,10 @@ async function sendSingleWhatsAppMessage(recipient, message) {
     whatsappStats.failed++;
     addWhatsAppLog(recipient.phone, '❌ Error: ' + error.message, 'error');
     updateWhatsAppStats();
+  }
+  } catch (error) {
+    Logger.error('Error in sendSingleWhatsAppMessage:', error);
+    throw error;
   }
 }
 

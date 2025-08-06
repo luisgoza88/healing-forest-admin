@@ -17,22 +17,22 @@ const Config = {
 
   // Twilio Configuration (for WhatsApp)
   twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-    authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
+    accountSid: '',
+    authToken: '',
+    whatsappNumber: '+14155238886',
   },
 
   // EmailJS Configuration
   emailjs: {
-    serviceId: process.env.EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID',
-    templateId: process.env.EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID',
-    publicKey: process.env.EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY',
+    serviceId: 'YOUR_SERVICE_ID',
+    templateId: 'YOUR_TEMPLATE_ID',
+    publicKey: 'YOUR_PUBLIC_KEY',
   },
 
   // Siigo Configuration
   siigo: {
-    apiKey: process.env.SIIGO_API_KEY || '',
-    companyId: process.env.SIIGO_COMPANY_ID || '',
+    apiKey: '',
+    companyId: '',
   },
 
   // Application Settings
