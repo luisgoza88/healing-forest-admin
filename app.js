@@ -590,24 +590,52 @@ async function loadPatients() {
 
     if (snapshot.empty) {
       tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align: center;">No hay pacientes registrados</td></tr>';
+        '<tr><td colspan="8" style="text-align: center;">No hay pacientes registrados</td></tr>';
     } else {
+      // First, let's get appointment counts for each patient
+      const appointmentsSnapshot = await db.collection('appointments').get();
+      const patientAppointments = {};
+      
+      appointmentsSnapshot.forEach((doc) => {
+        const apt = doc.data();
+        if (apt.patientId) {
+          if (!patientAppointments[apt.patientId]) {
+            patientAppointments[apt.patientId] = {
+              count: 0,
+              lastVisit: null
+            };
+          }
+          patientAppointments[apt.patientId].count++;
+          
+          const aptDate = apt.date ? new Date(apt.date.seconds * 1000) : null;
+          if (aptDate && (!patientAppointments[apt.patientId].lastVisit || 
+              aptDate > patientAppointments[apt.patientId].lastVisit)) {
+            patientAppointments[apt.patientId].lastVisit = aptDate;
+          }
+        }
+      });
+
       snapshot.forEach((doc) => {
         const patient = doc.data();
         const birthDate = patient.birthDate || 'N/A';
-        const createdAt = patient.createdAt
-          ? new Date(patient.createdAt.seconds * 1000).toLocaleDateString()
-          : 'N/A';
+        const gender = patient.gender || patient.genero || '-';
         const phone = patient.phone || '';
+        
+        // Get appointment info for this patient
+        const aptInfo = patientAppointments[doc.id] || { count: 0, lastVisit: null };
+        const lastVisit = aptInfo.lastVisit ? aptInfo.lastVisit.toLocaleDateString() : '-';
+        
         const row = `
                     <tr>
-                        <td>${patient.name || 'N/A'}</td>
+                        <td>${patient.name || patient.displayName || 'N/A'}</td>
                         <td>${patient.email || 'N/A'}</td>
                         <td>${patient.phone || 'N/A'}</td>
                         <td>${birthDate}</td>
-                        <td>${createdAt}</td>
+                        <td>${gender}</td>
+                        <td>${aptInfo.count}</td>
+                        <td>${lastVisit}</td>
                         <td>
-                            ${phone ? `<button class="action-btn" style="background: #25d366; color: white;" onclick="sendWhatsApp('${phone}', 'Hola ${patient.name || 'paciente'}')">WhatsApp</button>` : ''}
+                            ${phone ? `<button class="action-btn" style="background: #25d366; color: white;" onclick="sendWhatsApp('${phone}', 'Hola ${patient.name || patient.displayName || 'paciente'}')">WhatsApp</button>` : ''}
                             <button class="action-btn edit-btn" onclick="viewPatient('${doc.id}')">Ver</button>
                         </td>
                     </tr>
@@ -678,18 +706,25 @@ async function loadServices() {
             }
           : null;
 
+        // Handle different field name variations
+        const serviceName = service.name || service.serviceName || service.nombre || doc.id || 'N/A';
+        const serviceCategory = service.category || service.categoria || service.type || 'General';
+        const serviceDuration = service.duration || service.duracion || service.sessionDuration || 60;
+        const servicePrice = service.price || service.precio || service.cost || 0;
+        const isActive = service.active !== undefined ? service.active : true;
+        
         const row = `
                     <tr>
-                        <td>${service.name || 'N/A'}</td>
-                        <td>${service.category || 'N/A'}</td>
-                        <td>${service.duration || 'N/A'} min</td>
-                        <td>$${service.price || 'N/A'}</td>
+                        <td>${serviceName}</td>
+                        <td>${serviceCategory}</td>
+                        <td>${serviceDuration} min</td>
+                        <td>$${servicePrice}</td>
                         <td>
-                            ${service.active ? '<span style="color: #16A34A;">Activo</span>' : '<span style="color: #DC2626;">Inactivo</span>'}
+                            ${isActive ? '<span style="color: #16A34A;">Activo</span>' : '<span style="color: #DC2626;">Inactivo</span>'}
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name}')">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${serviceName}')">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
