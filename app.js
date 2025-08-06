@@ -781,6 +781,30 @@ window.showServiceCalendar = async function(serviceId, serviceName) {
             </span>
         </div>
         
+        <!-- Quick booking section -->
+        <div style="background: #F3F4F6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0;">Reserva Rápida</h4>
+            <div style="display: flex; gap: 10px; align-items: end;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Paciente</label>
+                    <select id="quickBookingPatient" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Seleccionar paciente...</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Fecha</label>
+                    <input type="date" id="quickBookingDate" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Hora</label>
+                    <input type="time" id="quickBookingTime" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <button class="btn" style="background: #3B82F6;" onclick="quickBookService('${serviceId}')">
+                    Reservar
+                </button>
+            </div>
+        </div>
+        
         <div id="serviceCalendarContainer" style="background: white; padding: 20px; border-radius: 8px; min-height: 600px;"></div>
     `;
     
@@ -790,6 +814,12 @@ window.showServiceCalendar = async function(serviceId, serviceName) {
     // Initialize calendar after modal is shown
     setTimeout(() => {
         initializeCalendarForService(serviceId, service);
+        // Load patients for quick booking
+        loadPatientsForQuickBooking();
+        // Initialize Flatpickr if available
+        if (window.calendarEnhancements) {
+            window.calendarEnhancements.initializeFlatpickr();
+        }
     }, 100);
     
     } catch (error) {
@@ -803,6 +833,12 @@ async function initializeCalendarForService(serviceId, serviceData) {
     const calendarEl = document.getElementById('serviceCalendarContainer');
     
     if (!calendarEl) return;
+    
+    // Use enhanced calendar if available
+    if (window.calendarEnhancements && window.calendarEnhancements.enhanceServiceCalendar) {
+        window.currentCalendarInstance = window.calendarEnhancements.enhanceServiceCalendar(serviceId, serviceData, 'serviceCalendarContainer');
+        return;
+    }
     
     // Get appointments for this service (simplified query)
     const appointmentsSnapshot = await db.collection('appointments')
@@ -926,6 +962,88 @@ function configureServiceSchedule(serviceId) {
 function showAppointmentDetails(appointmentId) {
     console.log('Showing appointment details for:', appointmentId);
     alert('Detalles de la cita - En desarrollo');
+}
+
+// Load patients for quick booking dropdown
+async function loadPatientsForQuickBooking() {
+    try {
+        const snapshot = await db.collection('users')
+            .where('role', '==', 'patient')
+            .limit(50)
+            .get();
+        
+        const select = document.getElementById('quickBookingPatient');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Seleccionar paciente...</option>';
+        
+        snapshot.forEach(doc => {
+            const patient = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = patient.name || patient.email;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading patients:', error);
+    }
+}
+
+// Quick book service
+async function quickBookService(serviceId) {
+    const patientId = document.getElementById('quickBookingPatient').value;
+    const date = document.getElementById('quickBookingDate').value;
+    const time = document.getElementById('quickBookingTime').value;
+    
+    if (!patientId || !date || !time) {
+        widgets.showWarning('Por favor completa todos los campos');
+        return;
+    }
+    
+    try {
+        // Get service and patient data
+        const [serviceDoc, patientDoc] = await Promise.all([
+            db.collection('services').doc(serviceId).get(),
+            db.collection('users').doc(patientId).get()
+        ]);
+        
+        const service = serviceDoc.data();
+        const patient = patientDoc.data();
+        
+        // Create appointment
+        const appointmentData = {
+            serviceId: serviceId,
+            serviceName: service.name,
+            patientId: patientId,
+            patientName: patient.name || patient.email,
+            patientPhone: patient.phone || '',
+            date: firebase.firestore.Timestamp.fromDate(new Date(date)),
+            time: time,
+            duration: service.duration || 60,
+            price: service.price || 0,
+            status: 'confirmed',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
+        };
+        
+        await db.collection('appointments').add(appointmentData);
+        
+        widgets.showSuccess('¡Cita reservada exitosamente!');
+        
+        // Refresh calendar
+        if (window.currentCalendarInstance) {
+            window.currentCalendarInstance.refetchEvents();
+        }
+        
+        // Clear form
+        document.getElementById('quickBookingPatient').value = '';
+        document.getElementById('quickBookingDate').value = '';
+        document.getElementById('quickBookingTime').value = '';
+        
+    } catch (error) {
+        console.error('Error booking appointment:', error);
+        widgets.showError('Error al reservar la cita');
+    }
 }
 
 // Update ALL services with capacity info
