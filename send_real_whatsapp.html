@@ -1,21 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>Enviar WhatsApp Real - Healing Forest</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-</head>
-<body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+  </head>
+  <body
+    style="
+      font-family: Arial;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    "
+  >
     <h1>📱 Enviar WhatsApp Real vía Twilio</h1>
-    
-    <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3>✅ Tu sandbox está conectado!</h3>
-        <p>Ahora enviaremos un mensaje real a tu WhatsApp.</p>
+
+    <div
+      style="
+        background: #d4edda;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+      "
+    >
+      <h3>✅ Tu sandbox está conectado!</h3>
+      <p>Ahora enviaremos un mensaje real a tu WhatsApp.</p>
     </div>
-    
-    <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-        <h3>Personaliza tu mensaje:</h3>
-        <textarea id="customMessage" style="width: 100%; height: 200px; padding: 10px; font-size: 14px; border: 1px solid #ddd; border-radius: 5px;">🌳 *Healing Forest Admin*
+
+    <div
+      style="
+        background: white;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      "
+    >
+      <h3>Personaliza tu mensaje:</h3>
+      <textarea
+        id="customMessage"
+        style="
+          width: 100%;
+          height: 200px;
+          padding: 10px;
+          font-size: 14px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        "
+      >
+🌳 *Healing Forest Admin*
 
 ¡Hola! 👋
 
@@ -29,82 +61,116 @@ Funciones disponibles:
 • Confirmaciones de pago
 • Notificaciones de vencimientos
 
-_Este es un mensaje de prueba desde tu panel admin_</textarea>
-        
-        <button onclick="sendRealWhatsApp()" style="background: #25D366; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 15px;">
-            Enviar WhatsApp Ahora 🚀
-        </button>
+_Este es un mensaje de prueba desde tu panel admin_</textarea
+      >
+
+      <button
+        onclick="sendRealWhatsApp()"
+        style="
+          background: #25d366;
+          color: white;
+          padding: 15px 30px;
+          border: none;
+          border-radius: 5px;
+          font-size: 18px;
+          cursor: pointer;
+          width: 100%;
+          margin-top: 15px;
+        "
+      >
+        Enviar WhatsApp Ahora 🚀
+      </button>
     </div>
-    
-    <div id="result" style="margin-top: 20px; display: none;"></div>
-    
-    <div id="loading" style="display: none; text-align: center; margin: 20px 0;">
-        <div style="display: inline-block; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #25D366; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <p>Enviando mensaje...</p>
+
+    <div id="result" style="margin-top: 20px; display: none"></div>
+
+    <div id="loading" style="display: none; text-align: center; margin: 20px 0">
+      <div
+        style="
+          display: inline-block;
+          width: 50px;
+          height: 50px;
+          border: 5px solid #f3f3f3;
+          border-top: 5px solid #25d366;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        "
+      ></div>
+      <p>Enviando mensaje...</p>
     </div>
-    
+
     <style>
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
     </style>
-    
+
     <script>
-        // Firebase config
-        const firebaseConfig = {
-            apiKey: "AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM",
-            authDomain: "healling-forest.firebaseapp.com",
-            projectId: "healling-forest",
-            storageBucket: "healling-forest.firebasestorage.app",
-            messagingSenderId: "657330224656",
-            appId: "1:657330224656:web:admin"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        
-        async function sendRealWhatsApp() {
-            const message = document.getElementById('customMessage').value;
-            const loading = document.getElementById('loading');
-            const result = document.getElementById('result');
-            
-            loading.style.display = 'block';
-            result.style.display = 'none';
-            
-            try {
-                // Get WhatsApp config from Firebase
-                const configDoc = await db.collection('integrations').doc('whatsapp').get();
-                if (!configDoc.exists) {
-                    throw new Error('WhatsApp no está configurado. Usa setup_whatsapp.html primero');
-                }
-                
-                const config = configDoc.data();
-                
-                // Create message data for Firebase
-                const messageData = {
-                    to: config.adminPhone,
-                    message: message,
-                    type: 'test',
-                    status: 'pending',
-                    createdAt: new Date(),
-                    twilioConfig: {
-                        accountSid: config.accountSid,
-                        from: config.mode === 'sandbox' ? '+14155238886' : config.fromNumber
-                    }
-                };
-                
-                // Save to Firebase (this would trigger a cloud function in production)
-                await db.collection('whatsapp_queue').add(messageData);
-                
-                // For demo purposes, we'll simulate success
-                setTimeout(() => {
-                    loading.style.display = 'none';
-                    result.style.display = 'block';
-                    result.style.background = '#d4edda';
-                    result.style.padding = '20px';
-                    result.style.borderRadius = '8px';
-                    result.innerHTML = `
+      // Firebase config
+      const firebaseConfig = {
+        apiKey: 'AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM',
+        authDomain: 'healling-forest.firebaseapp.com',
+        projectId: 'healling-forest',
+        storageBucket: 'healling-forest.firebasestorage.app',
+        messagingSenderId: '657330224656',
+        appId: '1:657330224656:web:admin',
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      async function sendRealWhatsApp() {
+        const message = document.getElementById('customMessage').value;
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+
+        loading.style.display = 'block';
+        result.style.display = 'none';
+
+        try {
+          // Get WhatsApp config from Firebase
+          const configDoc = await db
+            .collection('integrations')
+            .doc('whatsapp')
+            .get();
+          if (!configDoc.exists) {
+            throw new Error(
+              'WhatsApp no está configurado. Usa setup_whatsapp.html primero'
+            );
+          }
+
+          const config = configDoc.data();
+
+          // Create message data for Firebase
+          const messageData = {
+            to: config.adminPhone,
+            message: message,
+            type: 'test',
+            status: 'pending',
+            createdAt: new Date(),
+            twilioConfig: {
+              accountSid: config.accountSid,
+              from:
+                config.mode === 'sandbox' ? '+14155238886' : config.fromNumber,
+            },
+          };
+
+          // Save to Firebase (this would trigger a cloud function in production)
+          await db.collection('whatsapp_queue').add(messageData);
+
+          // For demo purposes, we'll simulate success
+          setTimeout(() => {
+            loading.style.display = 'none';
+            result.style.display = 'block';
+            result.style.background = '#d4edda';
+            result.style.padding = '20px';
+            result.style.borderRadius = '8px';
+            result.innerHTML = `
                         <h3>✅ ¡Mensaje Enviado!</h3>
                         <p><strong>A:</strong> ${config.adminPhone}</p>
                         <p><strong>Modo:</strong> ${config.mode === 'sandbox' ? 'Sandbox' : 'Producción'}</p>
@@ -120,40 +186,48 @@ _Este es un mensaje de prueba desde tu panel admin_</textarea>
                             una Cloud Function o servidor backend que procese la cola de mensajes.</p>
                         </div>
                     `;
-                    
-                    // Log success
-                    db.collection('whatsapp_logs').add({
-                        type: 'test_success',
-                        to: config.adminPhone,
-                        message: message,
-                        sentAt: new Date(),
-                        status: 'delivered'
-                    });
-                }, 3000);
-                
-            } catch (error) {
-                loading.style.display = 'none';
-                result.style.display = 'block';
-                result.style.background = '#fee';
-                result.style.padding = '20px';
-                result.style.borderRadius = '8px';
-                result.innerHTML = `
+
+            // Log success
+            db.collection('whatsapp_logs').add({
+              type: 'test_success',
+              to: config.adminPhone,
+              message: message,
+              sentAt: new Date(),
+              status: 'delivered',
+            });
+          }, 3000);
+        } catch (error) {
+          loading.style.display = 'none';
+          result.style.display = 'block';
+          result.style.background = '#fee';
+          result.style.padding = '20px';
+          result.style.borderRadius = '8px';
+          result.innerHTML = `
                     <h3>❌ Error</h3>
                     <p>${error.message}</p>
                 `;
-            }
         }
+      }
     </script>
-    
-    <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-top: 30px;">
-        <h3>📝 Cómo funciona en producción:</h3>
-        <ol style="line-height: 1.8;">
-            <li><strong>Evento</strong>: Se crea una cita en el sistema</li>
-            <li><strong>Firebase</strong>: Detecta el cambio y agrega a la cola</li>
-            <li><strong>Servidor</strong>: Procesa la cola cada minuto</li>
-            <li><strong>Twilio</strong>: Envía el WhatsApp al paciente</li>
-            <li><strong>Confirmación</strong>: Se actualiza el estado en Firebase</li>
-        </ol>
+
+    <div
+      style="
+        background: #f3f4f6;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 30px;
+      "
+    >
+      <h3>📝 Cómo funciona en producción:</h3>
+      <ol style="line-height: 1.8">
+        <li><strong>Evento</strong>: Se crea una cita en el sistema</li>
+        <li><strong>Firebase</strong>: Detecta el cambio y agrega a la cola</li>
+        <li><strong>Servidor</strong>: Procesa la cola cada minuto</li>
+        <li><strong>Twilio</strong>: Envía el WhatsApp al paciente</li>
+        <li>
+          <strong>Confirmación</strong>: Se actualiza el estado en Firebase
+        </li>
+      </ol>
     </div>
-</body>
+  </body>
 </html>

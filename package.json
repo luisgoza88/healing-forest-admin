@@ -4,9 +4,19 @@
   "description": "Panel administrativo para Healing Forest",
   "scripts": {
     "start": "python3 -m http.server 8000",
-    "deploy": "git add . && git commit -m 'Update' && git push"
+    "deploy": "git add . && git commit -m 'Update' && git push",
+    "format": "prettier --write \"**/*.{js,html,css}\"",
+    "format:check": "prettier --check \"**/*.{js,html,css}\"",
+    "check:console": "grep -r 'console.log' js/ || echo 'No console.log found'"
   },
-  "keywords": ["admin", "healing", "forest"],
+  "keywords": [
+    "admin",
+    "healing",
+    "forest"
+  ],
   "author": "Healing Forest Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
 }

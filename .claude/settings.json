@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "Edit": [
+      {
+        "pattern": "**/*.{js,html,css}",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"${file}\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command", 
+            "command": "echo '✅ Tarea completada! Archivos formateados con Prettier.'"
+          }
+        ]
+      }
+    ],
+    "MultiEdit": [
+      {
+        "pattern": "**/*.{js,html,css}",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"${file}\""
+          }
+        ]
+      }
+    ]
+  }
+}

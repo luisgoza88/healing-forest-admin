@@ -1,39 +1,82 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>Test Directo WhatsApp - Sin Sandbox</title>
-</head>
-<body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+  </head>
+  <body
+    style="
+      font-family: Arial;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    "
+  >
     <h1>🚀 Prueba WhatsApp Sin Sandbox</h1>
-    
-    <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3>✅ Enviar SMS de prueba (funciona sin sandbox)</h3>
-        <input type="tel" id="phoneNumber" placeholder="+57 tu número" style="width: 100%; padding: 10px; margin: 10px 0; font-size: 16px;">
-        <button onclick="sendTestSMS()" style="background: #16A34A; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%;">
-            📱 Enviar SMS de Prueba
-        </button>
+
+    <div
+      style="
+        background: #d4edda;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+      "
+    >
+      <h3>✅ Enviar SMS de prueba (funciona sin sandbox)</h3>
+      <input
+        type="tel"
+        id="phoneNumber"
+        placeholder="+57 tu número"
+        style="width: 100%; padding: 10px; margin: 10px 0; font-size: 16px"
+      />
+      <button
+        onclick="sendTestSMS()"
+        style="
+          background: #16a34a;
+          color: white;
+          padding: 15px 30px;
+          border: none;
+          border-radius: 5px;
+          font-size: 18px;
+          cursor: pointer;
+          width: 100%;
+        "
+      >
+        📱 Enviar SMS de Prueba
+      </button>
     </div>
-    
-    <div id="result" style="margin-top: 20px;"></div>
-    
-    <div style="background: #e0f2fe; padding: 20px; border-radius: 8px; margin-top: 30px;">
-        <h3>💡 ¿Por qué SMS?</h3>
-        <p>Los SMS funcionan inmediatamente sin configuración de sandbox. Una vez que verifiques que Twilio está funcionando con SMS, podrás configurar WhatsApp correctamente.</p>
+
+    <div id="result" style="margin-top: 20px"></div>
+
+    <div
+      style="
+        background: #e0f2fe;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 30px;
+      "
+    >
+      <h3>💡 ¿Por qué SMS?</h3>
+      <p>
+        Los SMS funcionan inmediatamente sin configuración de sandbox. Una vez
+        que verifiques que Twilio está funcionando con SMS, podrás configurar
+        WhatsApp correctamente.
+      </p>
     </div>
-    
+
     <script>
-        async function sendTestSMS() {
-            const phone = document.getElementById('phoneNumber').value;
-            if (!phone || !phone.startsWith('+')) {
-                alert('Ingresa tu número con código de país (ej: +57...)');
-                return;
-            }
-            
-            showResult('Enviando SMS de prueba...');
-            
-            // Simulamos el envío para verificar la configuración
-            setTimeout(() => {
-                showResult(`
+      async function sendTestSMS() {
+        const phone = document.getElementById('phoneNumber').value;
+        if (!phone || !phone.startsWith('+')) {
+          alert('Ingresa tu número con código de país (ej: +57...)');
+          return;
+        }
+
+        showResult('Enviando SMS de prueba...');
+
+        // Simulamos el envío para verificar la configuración
+        setTimeout(() => {
+          showResult(
+            `
                     <h3>✅ Configuración Verificada!</h3>
                     <p>Tu número: ${phone}</p>
                     <p>Credenciales Twilio: Activas</p>
@@ -43,18 +86,20 @@
                         <li>Busca tu código sandbox personal</li>
                         <li>O solicita WhatsApp Business para tu número</li>
                     </ol>
-                `, 'success');
-            }, 2000);
-        }
-        
-        function showResult(message, type = 'info') {
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            resultDiv.style.padding = '20px';
-            resultDiv.style.borderRadius = '8px';
-            resultDiv.style.background = type === 'success' ? '#d4edda' : '#e3f2fd';
-            resultDiv.innerHTML = message;
-        }
+                `,
+            'success'
+          );
+        }, 2000);
+      }
+
+      function showResult(message, type = 'info') {
+        const resultDiv = document.getElementById('result');
+        resultDiv.style.display = 'block';
+        resultDiv.style.padding = '20px';
+        resultDiv.style.borderRadius = '8px';
+        resultDiv.style.background = type === 'success' ? '#d4edda' : '#e3f2fd';
+        resultDiv.innerHTML = message;
+      }
     </script>
-</body>
+  </body>
 </html>

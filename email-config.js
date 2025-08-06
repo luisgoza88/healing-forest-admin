@@ -2,17 +2,17 @@
 // This file contains email templates and configuration
 
 const emailConfig = {
-    // EmailJS configuration (free service for sending emails from JavaScript)
-    // Sign up at https://www.emailjs.com/ to get your own keys
-    SERVICE_ID: 'YOUR_SERVICE_ID',
-    TEMPLATE_ID: 'YOUR_TEMPLATE_ID',
-    PUBLIC_KEY: 'YOUR_PUBLIC_KEY',
-    
-    // Email templates
-    templates: {
-        appointmentConfirmation: {
-            subject: 'Confirmación de Cita - Healing Forest',
-            getBody: (appointment) => `
+  // EmailJS configuration (free service for sending emails from JavaScript)
+  // Sign up at https://www.emailjs.com/ to get your own keys
+  SERVICE_ID: 'YOUR_SERVICE_ID',
+  TEMPLATE_ID: 'YOUR_TEMPLATE_ID',
+  PUBLIC_KEY: 'YOUR_PUBLIC_KEY',
+
+  // Email templates
+  templates: {
+    appointmentConfirmation: {
+      subject: 'Confirmación de Cita - Healing Forest',
+      getBody: (appointment) => `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <div style="background: #16A34A; color: white; padding: 20px; text-align: center;">
                         <h1>🌳 Healing Forest</h1>
@@ -38,12 +38,12 @@ const emailConfig = {
                         <p>© 2024 Healing Forest. Todos los derechos reservados.</p>
                     </div>
                 </div>
-            `
-        },
-        
-        appointmentReminder: {
-            subject: 'Recordatorio de Cita - Healing Forest',
-            getBody: (appointment) => `
+            `,
+    },
+
+    appointmentReminder: {
+      subject: 'Recordatorio de Cita - Healing Forest',
+      getBody: (appointment) => `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <div style="background: #16A34A; color: white; padding: 20px; text-align: center;">
                         <h1>🌳 Healing Forest</h1>
@@ -61,12 +61,12 @@ const emailConfig = {
                         <p>No olvide traer su documentación necesaria.</p>
                     </div>
                 </div>
-            `
-        },
-        
-        appointmentCancellation: {
-            subject: 'Cita Cancelada - Healing Forest',
-            getBody: (appointment) => `
+            `,
+    },
+
+    appointmentCancellation: {
+      subject: 'Cita Cancelada - Healing Forest',
+      getBody: (appointment) => `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                     <div style="background: #dc3545; color: white; padding: 20px; text-align: center;">
                         <h1>🌳 Healing Forest</h1>
@@ -83,20 +83,23 @@ const emailConfig = {
                         <p>Por favor, contáctenos para reprogramar su cita.</p>
                     </div>
                 </div>
-            `
-        }
-    }
+            `,
+    },
+  },
 };
 
 // Function to send email using EmailJS
 async function sendEmail(to, templateType, data) {
-    try {
-        // For demo purposes, we'll simulate sending
-        console.log(`Sending ${templateType} email to ${to}`);
-        console.log('Email content:', emailConfig.templates[templateType].getBody(data));
-        
-        // In production, uncomment this and use EmailJS:
-        /*
+  try {
+    // For demo purposes, we'll simulate sending
+    console.log(`Sending ${templateType} email to ${to}`);
+    console.log(
+      'Email content:',
+      emailConfig.templates[templateType].getBody(data)
+    );
+
+    // In production, uncomment this and use EmailJS:
+    /*
         const response = await emailjs.send(
             emailConfig.SERVICE_ID,
             emailConfig.TEMPLATE_ID,
@@ -108,10 +111,10 @@ async function sendEmail(to, templateType, data) {
             emailConfig.PUBLIC_KEY
         );
         */
-        
-        return { success: true, message: 'Email enviado correctamente' };
-    } catch (error) {
-        console.error('Error sending email:', error);
-        return { success: false, message: error.message };
-    }
+
+    return { success: true, message: 'Email enviado correctamente' };
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return { success: false, message: error.message };
+  }
 }
