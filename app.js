@@ -85,9 +85,6 @@ function showSection(section) {
         case 'appointments':
             loadAppointments();
             break;
-        case 'resources':
-            loadResourcesView();
-            break;
         case 'staff':
             loadStaff();
             break;
@@ -600,12 +597,15 @@ async function loadServices() {
         } else {
             snapshot.forEach(doc => {
                 const service = doc.data();
-                // ALL services have capacity management
-                const hasCapacityManagement = true; // Todos los servicios tienen calendario
-                const capacityInfo = { 
-                    capacity: service.maxParticipants || 1, 
-                    type: service.isGroupService ? 'group' : 'individual' 
-                };
+                // Check if this service has capacity management
+                const serviceKey = doc.id.toLowerCase();
+                const hasCapacityManagement = service.hasCapacityManagement || 
+                    ['yoga', 'masaje', 'massage', 'sauna', 'camara_hiperbarica', 'hyperbaric', 'sueros', 'iv_therapy'].some(key => 
+                        serviceKey.includes(key) || service.name.toLowerCase().includes(key)
+                    );
+                const capacityInfo = service.maxParticipants ? 
+                    { capacity: service.maxParticipants, type: service.isGroupService ? 'group' : 'individual' } : 
+                    null;
                 
                 const row = `
                     <tr>
@@ -618,7 +618,7 @@ async function loadServices() {
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="window.showServiceCalendar('${doc.id}', '${service.name || 'Servicio'}'); return false;">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${service.name}')">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -725,30 +725,17 @@ function closeCalendarModal() {
 }
 
 // Show service calendar
-window.showServiceCalendar = async function(serviceId, serviceName) {
-    try {
-        console.log('Opening calendar for:', serviceId, serviceName);
-        
-        const modal = document.getElementById('calendarModal');
-        const modalTitle = document.getElementById('calendarModalTitle');
-        const modalBody = document.getElementById('calendarModalBody');
-        
-        if (!modal || !modalTitle || !modalBody) {
-            console.error('Calendar modal elements not found');
-            alert('Error: No se encontró el modal del calendario');
-            return;
-        }
-        
-        // Set title
-        modalTitle.textContent = `Calendario de ${serviceName}`;
-        
-        // Get service data
-        const serviceDoc = await db.collection('services').doc(serviceId).get();
-        if (!serviceDoc.exists) {
-            alert('Error: Servicio no encontrado');
-            return;
-        }
-        const service = serviceDoc.data();
+async function showServiceCalendar(serviceId, serviceName) {
+    const modal = document.getElementById('calendarModal');
+    const modalTitle = document.getElementById('calendarModalTitle');
+    const modalBody = document.getElementById('calendarModalBody');
+    
+    // Set title
+    modalTitle.textContent = `Calendario de ${serviceName}`;
+    
+    // Get service data
+    const serviceDoc = await db.collection('services').doc(serviceId).get();
+    const service = serviceDoc.data();
     
     // Create calendar content
     modalBody.innerHTML = `
@@ -781,30 +768,6 @@ window.showServiceCalendar = async function(serviceId, serviceName) {
             </span>
         </div>
         
-        <!-- Quick booking section -->
-        <div style="background: #F3F4F6; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0;">Reserva Rápida</h4>
-            <div style="display: flex; gap: 10px; align-items: end;">
-                <div style="flex: 1;">
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Paciente</label>
-                    <select id="quickBookingPatient" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Seleccionar paciente...</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Fecha</label>
-                    <input type="date" id="quickBookingDate" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-size: 14px;">Hora</label>
-                    <input type="time" id="quickBookingTime" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-                <button class="btn" style="background: #3B82F6;" onclick="quickBookService('${serviceId}')">
-                    Reservar
-                </button>
-            </div>
-        </div>
-        
         <div id="serviceCalendarContainer" style="background: white; padding: 20px; border-radius: 8px; min-height: 600px;"></div>
     `;
     
@@ -814,18 +777,7 @@ window.showServiceCalendar = async function(serviceId, serviceName) {
     // Initialize calendar after modal is shown
     setTimeout(() => {
         initializeCalendarForService(serviceId, service);
-        // Load patients for quick booking
-        loadPatientsForQuickBooking();
-        // Initialize Flatpickr if available
-        if (window.calendarEnhancements) {
-            window.calendarEnhancements.initializeFlatpickr();
-        }
     }, 100);
-    
-    } catch (error) {
-        console.error('Error showing service calendar:', error);
-        alert('Error al abrir el calendario: ' + error.message);
-    }
 }
 
 // Initialize calendar for a specific service
@@ -834,32 +786,18 @@ async function initializeCalendarForService(serviceId, serviceData) {
     
     if (!calendarEl) return;
     
-    // Use enhanced calendar if available
-    if (window.calendarEnhancements && window.calendarEnhancements.enhanceServiceCalendar) {
-        window.currentCalendarInstance = window.calendarEnhancements.enhanceServiceCalendar(serviceId, serviceData, 'serviceCalendarContainer');
-        return;
-    }
-    
-    // Get appointments for this service (simplified query)
+    // Get appointments for this service
     const appointmentsSnapshot = await db.collection('appointments')
         .where('serviceId', '==', serviceId)
+        .where('date', '>=', new Date())
         .get();
     
     const events = [];
     const slotCounts = {}; // Track bookings per slot
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
     appointmentsSnapshot.forEach(doc => {
         const appointment = doc.data();
-        if (!appointment.date) return;
-        
         const date = appointment.date.toDate();
-        
-        // Only show future appointments
-        if (date < today) return;
-        
         const dateStr = date.toISOString().split('T')[0];
         const timeKey = `${dateStr}_${appointment.time || appointment.startTime}`;
         
@@ -870,7 +808,7 @@ async function initializeCalendarForService(serviceId, serviceData) {
         const startTime = appointment.time || appointment.startTime || '09:00';
         const [hours, minutes] = startTime.split(':');
         const start = new Date(date);
-        start.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        start.setHours(parseInt(hours), parseInt(minutes));
         
         const end = new Date(start);
         end.setMinutes(end.getMinutes() + (serviceData.duration || 60));
@@ -958,97 +896,9 @@ function configureServiceSchedule(serviceId) {
     alert('Función para configurar horarios semanales - En desarrollo');
 }
 
-// Show appointment details
-function showAppointmentDetails(appointmentId) {
-    console.log('Showing appointment details for:', appointmentId);
-    alert('Detalles de la cita - En desarrollo');
-}
-
-// Load patients for quick booking dropdown
-async function loadPatientsForQuickBooking() {
-    try {
-        const snapshot = await db.collection('users')
-            .where('role', '==', 'patient')
-            .limit(50)
-            .get();
-        
-        const select = document.getElementById('quickBookingPatient');
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">Seleccionar paciente...</option>';
-        
-        snapshot.forEach(doc => {
-            const patient = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = patient.name || patient.email;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading patients:', error);
-    }
-}
-
-// Quick book service
-async function quickBookService(serviceId) {
-    const patientId = document.getElementById('quickBookingPatient').value;
-    const date = document.getElementById('quickBookingDate').value;
-    const time = document.getElementById('quickBookingTime').value;
-    
-    if (!patientId || !date || !time) {
-        widgets.showWarning('Por favor completa todos los campos');
-        return;
-    }
-    
-    try {
-        // Get service and patient data
-        const [serviceDoc, patientDoc] = await Promise.all([
-            db.collection('services').doc(serviceId).get(),
-            db.collection('users').doc(patientId).get()
-        ]);
-        
-        const service = serviceDoc.data();
-        const patient = patientDoc.data();
-        
-        // Create appointment
-        const appointmentData = {
-            serviceId: serviceId,
-            serviceName: service.name,
-            patientId: patientId,
-            patientName: patient.name || patient.email,
-            patientPhone: patient.phone || '',
-            date: firebase.firestore.Timestamp.fromDate(new Date(date)),
-            time: time,
-            duration: service.duration || 60,
-            price: service.price || 0,
-            status: 'confirmed',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdBy: currentUser.uid
-        };
-        
-        await db.collection('appointments').add(appointmentData);
-        
-        widgets.showSuccess('¡Cita reservada exitosamente!');
-        
-        // Refresh calendar
-        if (window.currentCalendarInstance) {
-            window.currentCalendarInstance.refetchEvents();
-        }
-        
-        // Clear form
-        document.getElementById('quickBookingPatient').value = '';
-        document.getElementById('quickBookingDate').value = '';
-        document.getElementById('quickBookingTime').value = '';
-        
-    } catch (error) {
-        console.error('Error booking appointment:', error);
-        widgets.showError('Error al reservar la cita');
-    }
-}
-
-// Update ALL services with capacity info
+// Update existing services with capacity info
 async function updateServicesWithCapacity() {
-    console.log('Actualizando TODOS los servicios con información de capacidad...');
+    console.log('Actualizando servicios con información de capacidad...');
     
     const capacityMap = {
         'yoga': { maxParticipants: 16, isGroupService: true },
@@ -1081,125 +931,32 @@ async function updateServicesWithCapacity() {
                 }
             }
             
-            // If no specific config, use default (1 person)
-            if (!capacityConfig) {
-                capacityConfig = { maxParticipants: 1, isGroupService: false };
+            if (capacityConfig && !service.hasCapacityManagement) {
+                batch.update(doc.ref, {
+                    ...capacityConfig,
+                    hasCapacityManagement: true,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                updateCount++;
+                console.log(`Actualizando ${service.name} con capacidad ${capacityConfig.maxParticipants}`);
             }
-            
-            // Update ALL services, even if they already have hasCapacityManagement
-            batch.update(doc.ref, {
-                ...capacityConfig,
-                hasCapacityManagement: true,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            updateCount++;
-            console.log(`Actualizando ${service.name} con capacidad ${capacityConfig.maxParticipants}`);
         });
         
         if (updateCount > 0) {
             await batch.commit();
             console.log(`✅ ${updateCount} servicios actualizados con información de capacidad`);
-            alert(`✅ ${updateCount} servicios actualizados! Recargando...`);
             loadServices(); // Reload services
         } else {
             console.log('No hay servicios para actualizar');
         }
     } catch (error) {
         console.error('Error actualizando servicios:', error);
-        alert('Error al actualizar servicios: ' + error.message);
     }
 }
 
 // Auto-update services on load if needed
 if (window.location.hash === '#update-capacity') {
     updateServicesWithCapacity();
-}
-
-// RESOURCES VIEW FUNCTIONS
-let resourceTimelineCalendar = null;
-let occupancyHeatmap = null;
-
-// Load resources timeline view
-async function loadResourcesView() {
-    console.log('Loading resources view...');
-    
-    // Initialize timeline after a short delay to ensure container is visible
-    setTimeout(() => {
-        if (!resourceTimelineCalendar) {
-            resourceTimelineCalendar = window.calendarEnhancements.createResourceTimeline('resourceTimelineContainer');
-        } else {
-            resourceTimelineCalendar.refetchEvents();
-        }
-    }, 100);
-}
-
-// Refresh resource timeline
-function refreshResourceTimeline() {
-    if (resourceTimelineCalendar) {
-        resourceTimelineCalendar.refetchEvents();
-        widgets.showSuccess('Timeline actualizado');
-    }
-}
-
-// Show occupancy heatmap
-function showOccupancyHeatmap() {
-    const container = document.getElementById('heatmapContainer');
-    container.style.display = container.style.display === 'none' ? 'block' : 'none';
-    
-    if (container.style.display === 'block' && !occupancyHeatmap) {
-        occupancyHeatmap = window.calendarEnhancements.createOccupancyHeatmap('occupancyHeatmap');
-    }
-}
-
-// View appointments for a specific day
-window.viewDayAppointments = async function(dateStr) {
-    const date = new Date(dateStr);
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    try {
-        const snapshot = await db.collection('appointments')
-            .where('date', '>=', startOfDay)
-            .where('date', '<=', endOfDay)
-            .get();
-        
-        let html = '<div style="max-height: 400px; overflow-y: auto;">';
-        
-        if (snapshot.empty) {
-            html += '<p>No hay citas para este día</p>';
-        } else {
-            html += '<table style="width: 100%;">';
-            html += '<thead><tr><th>Hora</th><th>Paciente</th><th>Servicio</th><th>Estado</th></tr></thead>';
-            html += '<tbody>';
-            
-            snapshot.forEach(doc => {
-                const apt = doc.data();
-                html += `<tr>
-                    <td>${apt.time || 'N/A'}</td>
-                    <td>${apt.patientName || 'N/A'}</td>
-                    <td>${apt.serviceName || 'N/A'}</td>
-                    <td>${apt.status || 'pending'}</td>
-                </tr>`;
-            });
-            
-            html += '</tbody></table>';
-        }
-        
-        html += '</div>';
-        
-        Swal.fire({
-            title: `Citas del ${moment(date).format('DD/MM/YYYY')}`,
-            html: html,
-            width: 600,
-            confirmButtonColor: '#16A34A'
-        });
-        
-    } catch (error) {
-        console.error('Error loading day appointments:', error);
-        widgets.showError('Error al cargar las citas');
-    }
 }
 
 // Add Staff Modal
@@ -3103,14 +2860,8 @@ function showAdjustStock(productId) {
 }
 
 function showLowStockAlert() {
-    // Get all products and filter in memory to avoid complex queries
-    db.collection('products').get().then(snapshot => {
-        const lowStockProducts = snapshot.docs.filter(doc => {
-            const product = doc.data();
-            return product.stock <= product.minStock;
-        });
-        
-        if (lowStockProducts.length === 0) {
+    db.collection('products').where('stock', '<=', 'minStock').get().then(snapshot => {
+        if (snapshot.empty) {
             alert('✅ No hay productos con stock bajo en este momento');
             return;
         }
@@ -3120,16 +2871,18 @@ function showLowStockAlert() {
         alertContent += '<thead><tr><th>Producto</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Acción</th></tr></thead>';
         alertContent += '<tbody>';
         
-        lowStockProducts.forEach(doc => {
+        snapshot.forEach(doc => {
             const product = doc.data();
-            alertContent += `
-                <tr>
-                    <td>${product.name}</td>
-                    <td style="color: #ef4444; font-weight: bold;">${product.stock}</td>
-                    <td>${product.minStock}</td>
-                    <td><button class="action-btn" style="background: #16A34A; color: white;" onclick="closeModal(); showAdjustStock('${doc.id}')">Reabastecer</button></td>
-                </tr>
-            `;
+            if (product.stock <= product.minStock) {
+                alertContent += `
+                    <tr>
+                        <td>${product.name}</td>
+                        <td style="color: #ef4444; font-weight: bold;">${product.stock}</td>
+                        <td>${product.minStock}</td>
+                        <td><button class="action-btn" style="background: #16A34A; color: white;" onclick="closeModal(); showAdjustStock('${doc.id}')">Reabastecer</button></td>
+                    </tr>
+                `;
+            }
         });
         
         alertContent += '</tbody></table>';
@@ -3916,23 +3669,11 @@ async function checkExpiringProducts() {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     
-    // Simplified query to avoid Firebase index requirements
-    const allProducts = await db.collection('products')
+    const expiringProducts = await db.collection('products')
+        .where('trackExpiry', '==', true)
+        .where('expiryDate', '<=', thirtyDaysFromNow)
         .where('stock', '>', 0)
         .get();
-    
-    // Filter in memory
-    const expiringProducts = {
-        docs: allProducts.docs.filter(doc => {
-            const product = doc.data();
-            return product.trackExpiry === true && 
-                   product.expiryDate && 
-                   product.expiryDate.toDate() <= thirtyDaysFromNow;
-        }),
-        forEach: function(callback) {
-            this.docs.forEach(callback);
-        }
-    };
     
     const alerts = [];
     expiringProducts.forEach(doc => {

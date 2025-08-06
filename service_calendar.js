@@ -542,13 +542,9 @@ async function loadStaffOptions(serviceId) {
     }
 }
 
-// Show service calendar modal (OLD VERSION - DO NOT USE)
-function showServiceCalendarOLD(serviceId) {
+// Show service calendar modal
+function showServiceCalendar(serviceId) {
     const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-    if (!serviceConfig) {
-        console.error('Service config not found for:', serviceId);
-        return;
-    }
     
     const content = `
         <div style="margin-bottom: 20px;">
@@ -879,10 +875,10 @@ async function cancelServiceSlot(serviceId, date, time) {
     }
 }
 
-// Export calendar functions (DISABLED - using functions from app.js instead)
-window.serviceCalendarOLD = {
+// Export calendar functions
+window.serviceCalendar = {
     initializeServiceCalendar,
-    showServiceCalendar: showServiceCalendarOLD,
+    showServiceCalendar,
     showServiceSettings,
     showServiceStats,
     exportServiceSchedule
