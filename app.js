@@ -4402,10 +4402,6 @@ async function sendSingleWhatsAppMessage(recipient, message) {
     addWhatsAppLog(recipient.phone, '❌ Error: ' + error.message, 'error');
     updateWhatsAppStats();
   }
-  } catch (error) {
-    Logger.error('Error in sendSingleWhatsAppMessage:', error);
-    throw error;
-  }
 }
 
 // Add WhatsApp log

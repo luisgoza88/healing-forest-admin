@@ -1,6 +1,9 @@
 // AI PREDICTIONS & INTELLIGENT AUTOMATION MODULE
 // For Healing Forest - Smart Analytics and Predictions
 
+// Get db reference from global scope
+const db = window.db || firebase.firestore();
+
 class AIHealthAnalytics {
   constructor() {
     this.models = {
