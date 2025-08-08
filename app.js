@@ -409,8 +409,24 @@ function initializeCalendar() {
       right: 'dayGridMonth,timeGridWeek,timeGridDay',
     },
     events: [],
+    editable: true,
+    eventResizableFromStart: true,
     eventClick: function (info) {
-      viewAppointmentDetails(info.event.id);
+      editAppointment(info.event.id);
+    },
+    eventDrop: function (info) {
+      const start = info.event.start;
+      updateAppointment(info.event.id, {
+        date: start,
+        time: start.toTimeString().slice(0, 5),
+      });
+    },
+    eventResize: function (info) {
+      const start = info.event.start;
+      updateAppointment(info.event.id, {
+        date: start,
+        time: start.toTimeString().slice(0, 5),
+      });
     },
     dateClick: function (info) {
       showAddAppointmentForDate(info.dateStr);
@@ -449,6 +465,23 @@ async function loadCalendarEvents() {
     calendar.addEventSource(events);
   } catch (error) {
     Logger.log('Error loading calendar events:', error);
+  }
+}
+
+// Update appointment and refresh calendar
+async function updateAppointment(id, changes) {
+  try {
+    const updatedData = { ...changes };
+    if (updatedData.date instanceof Date) {
+      updatedData.date = firebase.firestore.Timestamp.fromDate(
+        updatedData.date
+      );
+    }
+    await db.collection('appointments').doc(id).update(updatedData);
+    await loadCalendarEvents();
+  } catch (error) {
+    Logger.log('Error updating appointment:', error);
+    alert('Error al actualizar la cita');
   }
 }
 
@@ -1313,9 +1346,68 @@ function deleteService(id) {
   }
 }
 
-// Edit functions (placeholder)
-function editAppointment(id) {
-  alert('Función de edición próximamente');
+// Edit functions
+async function editAppointment(id) {
+  try {
+    const [appointmentDoc, staffSnapshot] = await Promise.all([
+      db.collection('appointments').doc(id).get(),
+      db.collection('staff').where('active', '==', true).get(),
+    ]);
+
+    const appointment = appointmentDoc.data();
+    let staffOptions = '<option value="">Seleccionar profesional</option>';
+    staffSnapshot.forEach((doc) => {
+      const staff = doc.data();
+      const selected = appointment.staffId === doc.id ? 'selected' : '';
+      staffOptions += `<option value="${doc.id}" ${selected}>${staff.name} (${staff.role})</option>`;
+    });
+
+    const content = `
+        <form id="editAppointmentForm">
+            <div class="form-group">
+                <label>Hora</label>
+                <input type="time" name="time" value="${appointment.time || ''}" required>
+            </div>
+            <div class="form-group">
+                <label>Profesional</label>
+                <select name="staffId" required>${staffOptions}</select>
+            </div>
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="status" required>
+                    <option value="pendiente" ${appointment.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="completada" ${appointment.status === 'completada' ? 'selected' : ''}>Completada</option>
+                    <option value="cancelada" ${appointment.status === 'cancelada' ? 'selected' : ''}>Cancelada</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="button" class="btn" onclick="saveEditedAppointment('${id}')">Guardar</button>
+                <button type="button" class="btn" onclick="closeModal()">Cancelar</button>
+            </div>
+        </form>
+    `;
+    showModal('Editar Cita', content);
+  } catch (error) {
+    Logger.log('Error loading appointment:', error);
+    alert('Error al cargar la cita');
+  }
+}
+
+async function saveEditedAppointment(id) {
+  const form = document.getElementById('editAppointmentForm');
+  const staffSelect = form.staffId;
+  const staffName = staffSelect.options[staffSelect.selectedIndex].text
+    .split('(')[0]
+    .trim();
+  const changes = {
+    time: form.time.value,
+    staffId: staffSelect.value,
+    staffName: staffName,
+    status: form.status.value,
+  };
+  await updateAppointment(id, changes);
+  calendar.refetchEvents();
+  closeModal();
 }
 
 function editStaff(id) {
