@@ -377,6 +377,7 @@ const CALENDAR_CONFIG = {
   dayMaxEvents: true,
   weekNumbers: true,
   weekText: 'Sem',
+  themeSystem: 'bootstrap5',
   businessHours: {
     daysOfWeek: [1, 2, 3, 4, 5, 6], // Monday - Saturday
     startTime: '06:00',
@@ -392,6 +393,23 @@ const CALENDAR_CONFIG = {
     hour: '2-digit',
     minute: '2-digit',
     meridiem: false,
+  },
+  eventContent: function (arg) {
+    const status = arg.event.extendedProps.status;
+    const capacity = arg.event.extendedProps.capacity;
+    const booked = arg.event.extendedProps.booked || 0;
+    const available = capacity != null ? capacity - booked : null;
+
+    let iconClass = 'fa-circle-check';
+    if (status === 'cancelado') {
+      iconClass = 'fa-circle-xmark';
+    } else if (available === 0) {
+      iconClass = 'fa-circle-exclamation';
+    }
+
+    const icon = `<i class="fa-solid ${iconClass} me-1"></i>`;
+    const timeText = arg.timeText ? arg.timeText + ' ' : '';
+    return { html: `${icon}${timeText}${arg.event.title}` };
   },
 };
 
@@ -823,25 +841,22 @@ function enhanceEventDisplay(info, serviceConfig) {
   const event = info.event;
   const el = info.el;
 
-  // Add capacity info if available
-  if (serviceConfig) {
-    const capacity = event.extendedProps.capacity || serviceConfig.capacity;
-    const booked = event.extendedProps.booked || 0;
-    const available = capacity - booked;
+  const capacity =
+    event.extendedProps.capacity || (serviceConfig && serviceConfig.capacity);
+  const booked = event.extendedProps.booked || 0;
+  const available = capacity != null ? capacity - booked : null;
 
-    // Color coding based on availability
-    if (available === 0) {
-      el.style.backgroundColor = '#DC2626'; // Red - full
-      el.style.borderColor = '#991B1B';
-    } else if (available <= capacity * 0.25) {
-      el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
-      el.style.borderColor = '#D97706';
-    } else {
-      el.style.backgroundColor = '#16A34A'; // Green - available
-      el.style.borderColor = '#15803D';
-    }
+  el.classList.remove('event-available', 'event-full', 'event-canceled');
 
-    // Add capacity badge
+  if (event.extendedProps.status === 'cancelado') {
+    el.classList.add('event-canceled');
+  } else if (available === 0 && capacity != null) {
+    el.classList.add('event-full');
+  } else {
+    el.classList.add('event-available');
+  }
+
+  if (capacity != null) {
     const badge = document.createElement('span');
     badge.className = 'event-capacity-badge';
     badge.textContent = `${booked}/${capacity}`;
@@ -1638,6 +1653,12 @@ window.showServiceCalendar = function (serviceId) {
 function addCalendarStyles() {
   const style = document.createElement('style');
   style.textContent = `
+        :root {
+            --event-available: #16A34A;
+            --event-full: #F59E0B;
+            --event-canceled: #DC2626;
+        }
+
         /* Flatpickr enhancements */
         .flatpickr-calendar {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -1676,7 +1697,23 @@ function addCalendarStyles() {
             transform: translateY(-2px);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
+        .event-available {
+            background: var(--event-available) !important;
+            border-color: var(--event-available) !important;
+        }
+
+        .event-full {
+            background: var(--event-full) !important;
+            border-color: var(--event-full) !important;
+        }
+
+        .event-canceled {
+            background: var(--event-canceled) !important;
+            border-color: var(--event-canceled) !important;
+            text-decoration: line-through;
+        }
+
         .event-capacity-badge {
             font-weight: bold;
         }
