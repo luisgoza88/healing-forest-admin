@@ -2,14 +2,17 @@
 // Loads required credentials from environment variables at runtime
 
 (function () {
-  function getEnvVar(name) {
+  function getEnvVar(name, defaultValue = '') {
     const value =
       (typeof process !== 'undefined' && process.env && process.env[name]) ||
       (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__[name]);
-    if (!value) {
+    
+    // Only throw error for required Firebase variables
+    if (!value && name.startsWith('FIREBASE_') && !defaultValue) {
       throw new Error(`Missing required environment variable: ${name}`);
     }
-    return value;
+    
+    return value || defaultValue;
   }
 
   const Config = {
@@ -25,22 +28,22 @@
 
     // Twilio Configuration (for WhatsApp)
     twilio: {
-      accountSid: getEnvVar('TWILIO_ACCOUNT_SID'),
-      authToken: getEnvVar('TWILIO_AUTH_TOKEN'),
-      whatsappNumber: getEnvVar('TWILIO_WHATSAPP_NUMBER'),
+      accountSid: getEnvVar('TWILIO_ACCOUNT_SID', ''),
+      authToken: getEnvVar('TWILIO_AUTH_TOKEN', ''),
+      whatsappNumber: getEnvVar('TWILIO_WHATSAPP_NUMBER', '+14155238886'),
     },
 
     // EmailJS Configuration
     emailjs: {
-      serviceId: getEnvVar('EMAILJS_SERVICE_ID'),
-      templateId: getEnvVar('EMAILJS_TEMPLATE_ID'),
-      publicKey: getEnvVar('EMAILJS_PUBLIC_KEY'),
+      serviceId: getEnvVar('EMAILJS_SERVICE_ID', 'YOUR_SERVICE_ID'),
+      templateId: getEnvVar('EMAILJS_TEMPLATE_ID', 'YOUR_TEMPLATE_ID'),
+      publicKey: getEnvVar('EMAILJS_PUBLIC_KEY', 'YOUR_PUBLIC_KEY'),
     },
 
     // Siigo Configuration
     siigo: {
-      apiKey: getEnvVar('SIIGO_API_KEY'),
-      companyId: getEnvVar('SIIGO_COMPANY_ID'),
+      apiKey: getEnvVar('SIIGO_API_KEY', ''),
+      companyId: getEnvVar('SIIGO_COMPANY_ID', ''),
     },
 
     // Application Settings
