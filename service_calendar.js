@@ -37,20 +37,23 @@ async function initializeServiceCalendar(serviceId, containerId) {
     return;
   }
 
-  // Add availability panel and get new calendar container
-  const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
+  // For now, skip the availability panel to test if calendar loads
+  console.log('Creating calendar for element:', calendarEl);
+  
+  // Temporarily comment out the panel
+  // const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
   
   try {
-    const calendar = new FullCalendar.Calendar(calendarContainer, {
-      initialView: 'timeGridWeek',
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
       locale: 'es',
-      height: 'auto',
+      height: 600,
       headerToolbar: {
         left: 'prev,next today',
         center: 'title',
         right: 'dayGridMonth,timeGridWeek,timeGridDay',
       },
-      businessHours: getBusinessHours(serviceId),
+      // businessHours: getBusinessHours(serviceId),
       slotMinTime: '06:00:00',
       slotMaxTime: '21:00:00',
       slotDuration: '00:30:00',
@@ -140,37 +143,24 @@ async function initializeServiceCalendar(serviceId, containerId) {
       }
     },
 
-    // Load events
-    events: async function (fetchInfo, successCallback, failureCallback) {
-      try {
-        const events = await loadServiceEvents(
-          serviceId,
-          fetchInfo.start,
-          fetchInfo.end
-        );
-        successCallback(events);
-        // Update availability panel when events are loaded
-        updateAvailabilityPanel(serviceId);
-      } catch (error) {
-        Logger.error('Error loading events:', error);
-        failureCallback(error);
+    // Simple test events
+    events: [
+      {
+        title: 'Test Event',
+        start: new Date(),
+        backgroundColor: '#16A34A'
       }
-    },
-    
-    // Update panel when navigating dates
-    datesSet: function() {
-      updateAvailabilityPanel(serviceId);
-    },
+    ]
   });
 
     calendar.render();
     serviceCalendars[serviceId] = calendar;
     currentServiceId = serviceId;
     
-    Logger.log('Calendar rendered successfully');
+    console.log('Calendar rendered successfully');
     return calendar;
   } catch (error) {
-    Logger.error('Error creating calendar:', error);
+    console.error('Error creating calendar:', error);
     throw error;
   }
 }
@@ -679,7 +669,7 @@ async function showServiceCalendar(serviceId) {
   // Initialize calendar after modal is shown
   setTimeout(async () => {
     try {
-      Logger.log('Initializing calendar for service:', serviceId);
+      console.log('Initializing calendar for service:', serviceId);
       await initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
     } catch (error) {
       Logger.error('Error initializing calendar:', error);
