@@ -1,171 +1,184 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Otorgar Rol Admin - Healing Forest</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="config.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #16a34a;
-            text-align: center;
-        }
-        .user-card {
-            border: 2px solid #16a34a;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
-            background: #f0f9ff;
-        }
-        .status {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .info {
-            background: #cce5ff;
-            color: #004085;
-            border: 1px solid #b8daff;
-        }
-        button {
-            background: #16a34a;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px 5px;
-        }
-        button:hover {
-            background: #15803d;
-        }
-        code {
-            background: #f0f0f0;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #16a34a;
+        text-align: center;
+      }
+      .user-card {
+        border: 2px solid #16a34a;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        background: #f0f9ff;
+      }
+      .status {
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 5px;
+        font-weight: bold;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .info {
+        background: #cce5ff;
+        color: #004085;
+        border: 1px solid #b8daff;
+      }
+      button {
+        background: #16a34a;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 10px 5px;
+      }
+      button:hover {
+        background: #15803d;
+      }
+      code {
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>🌳 Otorgar Rol de Administrador</h1>
-        
-        <div id="status"></div>
-        
-        <div class="user-card">
-            <h3>Usuario 1</h3>
-            <p><strong>UID:</strong> <code>siMvQbeGTsRbHbewQEcHlkQ52wx1</code></p>
-            <button onclick="grantAdminRole('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1)">Hacer Admin</button>
-            <button onclick="checkUser('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1)">Verificar Estado</button>
-            <div id="user1-info"></div>
-        </div>
-        
-        <div class="user-card">
-            <h3>Usuario 2</h3>
-            <p><strong>UID:</strong> <code>LaZID8kEzZWEGivcop8P147eF9P2</code></p>
-            <button onclick="grantAdminRole('LaZID8kEzZWEGivcop8P147eF9P2', 2)">Hacer Admin</button>
-            <button onclick="checkUser('LaZID8kEzZWEGivcop8P147eF9P2', 2)">Verificar Estado</button>
-            <div id="user2-info"></div>
-        </div>
-        
-        <div style="margin-top: 30px;">
-            <h3>Instrucciones:</h3>
-            <ol>
-                <li>Haz clic en "Hacer Admin" para otorgar rol de administrador</li>
-                <li>Una vez otorgado, podrás entrar con el email y contraseña del usuario</li>
-                <li>Si no conoces el email, usa "Verificar Estado" para verlo</li>
-            </ol>
-        </div>
-        
-        <div style="margin-top: 30px; text-align: center;">
-            <a href="/" style="color: #16a34a;">← Volver al Login</a>
-        </div>
+      <h1>🌳 Otorgar Rol de Administrador</h1>
+
+      <div id="status"></div>
+
+      <div class="user-card">
+        <h3>Usuario 1</h3>
+        <p><strong>UID:</strong> <code>siMvQbeGTsRbHbewQEcHlkQ52wx1</code></p>
+        <button onclick="grantAdminRole('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1)">
+          Hacer Admin
+        </button>
+        <button onclick="checkUser('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1)">
+          Verificar Estado
+        </button>
+        <div id="user1-info"></div>
+      </div>
+
+      <div class="user-card">
+        <h3>Usuario 2</h3>
+        <p><strong>UID:</strong> <code>LaZID8kEzZWEGivcop8P147eF9P2</code></p>
+        <button onclick="grantAdminRole('LaZID8kEzZWEGivcop8P147eF9P2', 2)">
+          Hacer Admin
+        </button>
+        <button onclick="checkUser('LaZID8kEzZWEGivcop8P147eF9P2', 2)">
+          Verificar Estado
+        </button>
+        <div id="user2-info"></div>
+      </div>
+
+      <div style="margin-top: 30px">
+        <h3>Instrucciones:</h3>
+        <ol>
+          <li>Haz clic en "Hacer Admin" para otorgar rol de administrador</li>
+          <li>
+            Una vez otorgado, podrás entrar con el email y contraseña del
+            usuario
+          </li>
+          <li>Si no conoces el email, usa "Verificar Estado" para verlo</li>
+        </ol>
+      </div>
+
+      <div style="margin-top: 30px; text-align: center">
+        <a href="/" style="color: #16a34a">← Volver al Login</a>
+      </div>
     </div>
 
     <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: 'AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM',
-            authDomain: 'healling-forest.firebaseapp.com',
-            projectId: 'healling-forest',
-            storageBucket: 'healling-forest.firebasestorage.app',
-            messagingSenderId: '657330224656',
-            appId: '1:657330224656:web:admin'
-        };
+      // Initialize Firebase
+      const firebaseConfig = window.AppConfig.firebase;
 
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
 
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = `status ${type}`;
-            statusDiv.innerHTML = message;
+      function showStatus(message, type) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = `status ${type}`;
+        statusDiv.innerHTML = message;
+      }
+
+      async function grantAdminRole(uid, userNum) {
+        try {
+          showStatus(`Otorgando rol admin al Usuario ${userNum}...`, 'info');
+
+          // Get current user data
+          const userDoc = await db.collection('users').doc(uid).get();
+          let userData = userDoc.exists ? userDoc.data() : {};
+
+          // Update with admin role
+          await db
+            .collection('users')
+            .doc(uid)
+            .set(
+              {
+                ...userData,
+                role: 'admin',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: 'admin_setup_script',
+              },
+              { merge: true }
+            );
+
+          showStatus(
+            `✅ Usuario ${userNum} ahora es administrador!`,
+            'success'
+          );
+
+          // Check the user info
+          checkUser(uid, userNum);
+        } catch (error) {
+          showStatus(`❌ Error: ${error.message}`, 'error');
+          console.error('Error completo:', error);
         }
+      }
 
-        async function grantAdminRole(uid, userNum) {
-            try {
-                showStatus(`Otorgando rol admin al Usuario ${userNum}...`, 'info');
-                
-                // Get current user data
-                const userDoc = await db.collection('users').doc(uid).get();
-                let userData = userDoc.exists ? userDoc.data() : {};
-                
-                // Update with admin role
-                await db.collection('users').doc(uid).set({
-                    ...userData,
-                    role: 'admin',
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: 'admin_setup_script'
-                }, { merge: true });
-                
-                showStatus(`✅ Usuario ${userNum} ahora es administrador!`, 'success');
-                
-                // Check the user info
-                checkUser(uid, userNum);
-                
-            } catch (error) {
-                showStatus(`❌ Error: ${error.message}`, 'error');
-                console.error('Error completo:', error);
-            }
-        }
+      async function checkUser(uid, userNum) {
+        try {
+          const userDoc = await db.collection('users').doc(uid).get();
+          const infoDiv = document.getElementById(`user${userNum}-info`);
 
-        async function checkUser(uid, userNum) {
-            try {
-                const userDoc = await db.collection('users').doc(uid).get();
-                const infoDiv = document.getElementById(`user${userNum}-info`);
-                
-                if (userDoc.exists) {
-                    const data = userDoc.data();
-                    infoDiv.innerHTML = `
+          if (userDoc.exists) {
+            const data = userDoc.data();
+            infoDiv.innerHTML = `
                         <div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 5px;">
                             <strong>Email:</strong> ${data.email || 'No registrado'}<br>
                             <strong>Nombre:</strong> ${data.name || 'No especificado'}<br>
@@ -173,39 +186,39 @@
                             <strong>Última actualización:</strong> ${data.updatedAt ? new Date(data.updatedAt.toDate()).toLocaleString() : 'N/A'}
                         </div>
                     `;
-                    
-                    if (data.email) {
-                        infoDiv.innerHTML += `
+
+            if (data.email) {
+              infoDiv.innerHTML += `
                             <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">
                                 <strong>Para entrar usa:</strong><br>
                                 Email: ${data.email}<br>
                                 Contraseña: La que el usuario haya configurado
                             </div>
                         `;
-                    }
-                } else {
-                    infoDiv.innerHTML = `
+            }
+          } else {
+            infoDiv.innerHTML = `
                         <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px;">
                             No existe documento en Firestore para este usuario. 
                             Haz clic en "Hacer Admin" para crearlo.
                         </div>
                     `;
-                }
-            } catch (error) {
-                console.error('Error checking user:', error);
-                document.getElementById(`user${userNum}-info`).innerHTML = `
+          }
+        } catch (error) {
+          console.error('Error checking user:', error);
+          document.getElementById(`user${userNum}-info`).innerHTML = `
                     <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px;">
                         Error al verificar: ${error.message}
                     </div>
                 `;
-            }
         }
+      }
 
-        // Check both users on load
-        window.onload = () => {
-            checkUser('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1);
-            checkUser('LaZID8kEzZWEGivcop8P147eF9P2', 2);
-        };
+      // Check both users on load
+      window.onload = () => {
+        checkUser('siMvQbeGTsRbHbewQEcHlkQ52wx1', 1);
+        checkUser('LaZID8kEzZWEGivcop8P147eF9P2', 2);
+      };
     </script>
-</body>
+  </body>
 </html>
