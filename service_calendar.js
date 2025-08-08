@@ -5,7 +5,7 @@ let serviceCalendars = {};
 let currentServiceId = null;
 let draggedEvent = null;
 
-// Initialize service calendar
+// Initialize service calendar with enhanced availability view
 function initializeServiceCalendar(serviceId, containerId) {
   const calendarEl = document.getElementById(containerId);
   const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
@@ -15,7 +15,10 @@ function initializeServiceCalendar(serviceId, containerId) {
     return;
   }
 
-  const calendar = new FullCalendar.Calendar(calendarEl, {
+  // Add availability panel and get new calendar container
+  const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
+
+  const calendar = new FullCalendar.Calendar(calendarContainer, {
     initialView: 'timeGridWeek',
     locale: 'es',
     height: 'auto',
@@ -123,10 +126,17 @@ function initializeServiceCalendar(serviceId, containerId) {
           fetchInfo.end
         );
         successCallback(events);
+        // Update availability panel when events are loaded
+        updateAvailabilityPanel(serviceId);
       } catch (error) {
         Logger.error('Error loading events:', error);
         failureCallback(error);
       }
+    },
+    
+    // Update panel when navigating dates
+    datesSet: function() {
+      updateAvailabilityPanel(serviceId);
     },
   });
 
@@ -585,20 +595,27 @@ function showServiceCalendar(serviceId) {
 
   const content = `
         <div style="margin-bottom: 20px;">
-            <h3>${serviceConfig.name} - Calendario de Clases</h3>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button class="btn" onclick="showServiceSettings('${serviceId}')">⚙️ Configuración</button>
-                <button class="btn" style="background: #0EA5E9;" onclick="showServiceStats('${serviceId}')">📊 Estadísticas</button>
-                <button class="btn" style="background: #F59E0B;" onclick="exportServiceSchedule('${serviceId}')">📥 Exportar</button>
+            <h3 style="margin: 0 0 15px 0;">${serviceConfig.name} - Calendario de Clases</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="showServiceSettings('${serviceId}')">⚙️ Configuración</button>
+                    <button class="btn" style="background: #0EA5E9;" onclick="showServiceStats('${serviceId}')">📊 Estadísticas</button>
+                    <button class="btn" style="background: #F59E0B;" onclick="exportServiceSchedule('${serviceId}')">📥 Exportar</button>
+                </div>
+                <div style="font-size: 13px; color: #666;">
+                    💡 Haz clic en una fecha/hora para crear una nueva cita
+                </div>
             </div>
         </div>
-        <div id="serviceCalendarContainer" style="min-height: 600px;"></div>
+        <div id="serviceCalendarContainer" style="min-height: 700px;"></div>
     `;
 
   // Create a larger modal for calendar
   const modal = document.getElementById('modal');
-  modal.querySelector('.modal-content').style.maxWidth = '90%';
-  modal.querySelector('.modal-content').style.width = '1200px';
+  modal.querySelector('.modal-content').style.maxWidth = '95%';
+  modal.querySelector('.modal-content').style.width = '1400px';
+  modal.querySelector('.modal-content').style.height = '90vh';
+  modal.querySelector('.modal-content').style.overflow = 'hidden';
 
   showModal('', content);
 
@@ -966,6 +983,197 @@ async function cancelServiceSlot(serviceId, date, time) {
   }
 }
 
+// Add availability panel to calendar view
+function addAvailabilityPanel(calendarEl, serviceId) {
+  const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+  
+  // Create wrapper for calendar and panel
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%;';
+  
+  // Create availability panel
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
+  panel.innerHTML = `
+    <h3 style="margin-top: 0; color: #1e3a3f;">📊 Disponibilidad</h3>
+    
+    <!-- Legend -->
+    <div style="margin-bottom: 20px;">
+      <h4 style="font-size: 14px; color: #666; margin-bottom: 10px;">Leyenda de Colores</h4>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 20px; height: 20px; background: #16A34A; border-radius: 4px;"></div>
+          <span style="font-size: 13px;">Disponible (>25% libre)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 20px; height: 20px; background: #F59E0B; border-radius: 4px;"></div>
+          <span style="font-size: 13px;">Casi lleno (≤25% libre)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 20px; height: 20px; background: #DC2626; border-radius: 4px;"></div>
+          <span style="font-size: 13px;">Lleno (sin cupos)</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Service Info -->
+    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Información del Servicio</h4>
+      <div style="font-size: 13px; display: flex; flex-direction: column; gap: 5px;">
+        <div><strong>Capacidad:</strong> ${serviceConfig.capacity} personas</div>
+        <div><strong>Duración:</strong> ${serviceConfig.duration} minutos</div>
+        <div><strong>Tipo:</strong> ${serviceConfig.type === 'group' ? 'Grupal' : 'Individual'}</div>
+      </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div id="quickStats_${serviceId}" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+      <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Estadísticas Rápidas</h4>
+      <div style="font-size: 13px;">Cargando...</div>
+    </div>
+    
+    <!-- Today's Availability -->
+    <div id="todayAvailability_${serviceId}" style="background: white; padding: 15px; border-radius: 8px;">
+      <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>
+      <div style="font-size: 13px;">Cargando...</div>
+    </div>
+  `;
+  
+  // Create calendar container
+  const calendarContainer = document.createElement('div');
+  calendarContainer.id = calendarEl.id + '_calendar';
+  calendarContainer.style.cssText = 'background: white; padding: 20px; border-radius: 8px;';
+  
+  // Replace original element
+  calendarEl.innerHTML = '';
+  wrapper.appendChild(panel);
+  wrapper.appendChild(calendarContainer);
+  calendarEl.appendChild(wrapper);
+  
+  // Update calendar element reference
+  calendarEl = calendarContainer;
+  
+  // Load initial stats
+  updateAvailabilityPanel(serviceId);
+  
+  return calendarContainer;
+}
+
+// Update availability panel with real-time data
+async function updateAvailabilityPanel(serviceId) {
+  try {
+    // Get today's availability
+    const today = new Date();
+    const availability = await window.serviceCapacity.getServiceAvailability(serviceId, today);
+    
+    // Update quick stats
+    const statsEl = document.getElementById(`quickStats_${serviceId}`);
+    if (statsEl) {
+      const weekStats = await getWeekStats(serviceId);
+      statsEl.innerHTML = `
+        <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Estadísticas Rápidas</h4>
+        <div style="font-size: 13px; display: flex; flex-direction: column; gap: 5px;">
+          <div><strong>Clases esta semana:</strong> ${weekStats.totalClasses}</div>
+          <div><strong>Cupos totales:</strong> ${weekStats.totalCapacity}</div>
+          <div><strong>Ocupación promedio:</strong> ${weekStats.avgOccupancy}%</div>
+          <div><strong>Ingresos estimados:</strong> $${weekStats.estimatedRevenue}</div>
+        </div>
+      `;
+    }
+    
+    // Update today's availability
+    const todayEl = document.getElementById(`todayAvailability_${serviceId}`);
+    if (todayEl && availability.slots) {
+      let slotsHtml = '<h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>';
+      
+      const availableSlots = availability.slots.filter(s => s.enabled && s.available > 0);
+      
+      if (availableSlots.length === 0) {
+        slotsHtml += '<p style="font-size: 13px; color: #DC2626;">No hay cupos disponibles para hoy</p>';
+      } else {
+        slotsHtml += '<div style="display: flex; flex-direction: column; gap: 5px;">';
+        availableSlots.forEach(slot => {
+          const percentage = Math.round((slot.available / slot.totalCapacity) * 100);
+          const color = percentage > 25 ? '#16A34A' : '#F59E0B';
+          
+          slotsHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+              <span style="font-size: 13px;">${slot.time}</span>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 12px; color: ${color};">${slot.available} cupos</span>
+                <div style="width: 60px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${100 - percentage}%; height: 100%; background: ${color};"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        slotsHtml += '</div>';
+      }
+      
+      todayEl.innerHTML = slotsHtml;
+    }
+  } catch (error) {
+    Logger.error('Error updating availability panel:', error);
+  }
+}
+
+// Get week statistics
+async function getWeekStats(serviceId) {
+  const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  
+  try {
+    const snapshot = await db
+      .collection('appointments')
+      .where('serviceId', '==', serviceId)
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfWeek))
+      .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfWeek))
+      .get();
+    
+    let totalBooked = 0;
+    let classCount = {};
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const key = `${data.date.toDate().toDateString()}_${data.time}`;
+      if (!classCount[key]) {
+        classCount[key] = 0;
+      }
+      classCount[key]++;
+      totalBooked++;
+    });
+    
+    const totalClasses = Object.keys(classCount).length;
+    const totalCapacity = totalClasses * serviceConfig.capacity;
+    const avgOccupancy = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
+    const estimatedRevenue = totalBooked * (serviceConfig.price || 50);
+    
+    return {
+      totalClasses,
+      totalCapacity,
+      totalBooked,
+      avgOccupancy,
+      estimatedRevenue
+    };
+  } catch (error) {
+    Logger.error('Error getting week stats:', error);
+    return {
+      totalClasses: 0,
+      totalCapacity: 0,
+      totalBooked: 0,
+      avgOccupancy: 0,
+      estimatedRevenue: 0
+    };
+  }
+}
+
 // Export calendar functions
 window.serviceCalendar = {
   initializeServiceCalendar,
@@ -973,4 +1181,5 @@ window.serviceCalendar = {
   showServiceSettings,
   showServiceStats,
   exportServiceSchedule,
+  updateAvailabilityPanel,
 };
