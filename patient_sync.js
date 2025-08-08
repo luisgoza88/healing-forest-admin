@@ -231,7 +231,8 @@ loadPatients = loadPatientsEnhanced;
 // Add real-time listeners for patient updates
 function setupPatientRealtimeSync() {
   // Listen for new patients
-  db.collection('users')
+  const unsubscribePatients = db
+    .collection('users')
     .where('role', '==', 'patient')
     .onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -255,9 +256,11 @@ function setupPatientRealtimeSync() {
         }
       });
     });
+  ListenerManager.add(unsubscribePatients);
 
   // Listen for appointment changes
-  db.collection('appointments')
+  const unsubscribeAppointments = db
+    .collection('appointments')
     .where('createdAt', '>=', new Date(Date.now() - 24 * 60 * 60 * 1000)) // Last 24 hours
     .onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -278,6 +281,7 @@ function setupPatientRealtimeSync() {
         }
       });
     });
+  ListenerManager.add(unsubscribeAppointments);
 }
 
 // Notification helper
