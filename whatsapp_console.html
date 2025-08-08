@@ -7,6 +7,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <style>
       * {
         margin: 0;
@@ -499,9 +500,10 @@ _Responde STOP para no recibir más mensajes_</textarea
       // Renderizar lista de pacientes
       function renderPatientsList() {
         const list = document.getElementById('patientsList');
-        list.innerHTML = patients
-          .map(
-            (patient) => `
+        list.innerHTML = DOMPurify.sanitize(
+          patients
+            .map(
+              (patient) => `
                 <div class="recipient-item">
                     <input type="checkbox" id="patient_${patient.id}" value="${patient.phone || ''}">
                     <label for="patient_${patient.id}">
@@ -509,8 +511,9 @@ _Responde STOP para no recibir más mensajes_</textarea
                     </label>
                 </div>
             `
-          )
-          .join('');
+            )
+            .join('')
+        );
       }
 
       // Toggle tipo de destinatario
@@ -748,7 +751,7 @@ Responde para más información.`,
         const logContainer = document.getElementById('logContainer');
         const logItem = document.createElement('div');
         logItem.className = `log-item ${type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : ''}`;
-        logItem.innerHTML = `
+        logItem.innerHTML = DOMPurify.sanitize(`
                 <div>
                     <strong>${number}</strong>
                     <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
@@ -756,7 +759,7 @@ Responde para más información.`,
                     </div>
                 </div>
                 <div>${status}</div>
-            `;
+            `);
         logContainer.insertBefore(logItem, logContainer.firstChild);
       }
 

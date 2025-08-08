@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Test Directo WhatsApp - Sin Sandbox</title>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   </head>
   <body
     style="
@@ -98,7 +99,7 @@
         resultDiv.style.padding = '20px';
         resultDiv.style.borderRadius = '8px';
         resultDiv.style.background = type === 'success' ? '#d4edda' : '#e3f2fd';
-        resultDiv.innerHTML = message;
+        resultDiv.innerHTML = DOMPurify.sanitize(message);
       }
     </script>
   </body>
