@@ -151,8 +151,8 @@ async function loadDashboardData() {
 
     const appointmentsSnapshot = await db
       .collection('appointments')
-      .where('date', '>=', today)
-      .where('date', '<', tomorrow)
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(today))
+      .where('date', '<', firebase.firestore.Timestamp.fromDate(tomorrow))
       .get();
 
     document.getElementById('todayAppointments').textContent =
