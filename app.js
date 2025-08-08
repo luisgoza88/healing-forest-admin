@@ -11,6 +11,7 @@ let currentUser = null;
 let calendar = null;
 let appointmentsChart = null;
 let servicesChart = null;
+let calendarEventsUnsubscribe = null;
 
 // Login functionality
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -82,6 +83,11 @@ function showSection(section) {
     sec.classList.remove('active');
   });
   document.getElementById(section).classList.add('active');
+
+  if (section !== 'appointments' && calendarEventsUnsubscribe) {
+    calendarEventsUnsubscribe();
+    calendarEventsUnsubscribe = null;
+  }
 
   // Load section data
   switch (section) {
@@ -393,6 +399,10 @@ function toggleCalendarView() {
     calendarView.style.display = 'none';
     tableView.style.display = 'block';
     toggleText.textContent = 'Ver Calendario';
+    if (calendarEventsUnsubscribe) {
+      calendarEventsUnsubscribe();
+      calendarEventsUnsubscribe = null;
+    }
   }
 }
 
@@ -438,34 +448,44 @@ function initializeCalendar() {
 }
 
 // Load calendar events
-async function loadCalendarEvents() {
-  try {
-    const snapshot = await db.collection('appointments').get();
-    const events = [];
-
-    snapshot.forEach((doc) => {
-      const appointment = doc.data();
-      if (appointment.date) {
-        const date = new Date(appointment.date.seconds * 1000);
-        events.push({
-          id: doc.id,
-          title: `${appointment.time || ''} - ${appointment.patientName || 'Sin nombre'} (${appointment.service || 'Sin servicio'})`,
-          start: date.toISOString().split('T')[0],
-          backgroundColor:
-            appointment.status === 'completada'
-              ? '#16A34A'
-              : appointment.status === 'cancelada'
-                ? '#dc3545'
-                : '#ffc107',
-        });
-      }
-    });
-
-    calendar.removeAllEvents();
-    calendar.addEventSource(events);
-  } catch (error) {
-    Logger.log('Error loading calendar events:', error);
+function loadCalendarEvents() {
+  if (calendarEventsUnsubscribe) {
+    calendarEventsUnsubscribe();
   }
+
+  calendarEventsUnsubscribe = db.collection('appointments').onSnapshot(
+    (snapshot) => {
+      const events = [];
+
+      snapshot.forEach((doc) => {
+        const appointment = doc.data();
+        if (appointment.date) {
+          const date = new Date(appointment.date.seconds * 1000);
+          events.push({
+            id: doc.id,
+            title: `${
+              appointment.time || ''
+            } - ${appointment.patientName || 'Sin nombre'} (${
+              appointment.service || 'Sin servicio'
+            })`,
+            start: date.toISOString().split('T')[0],
+            backgroundColor:
+              appointment.status === 'completada'
+                ? '#16A34A'
+                : appointment.status === 'cancelada'
+                  ? '#dc3545'
+                  : '#ffc107',
+          });
+        }
+      });
+
+      calendar.removeAllEvents();
+      calendar.addEventSource(events);
+    },
+    (error) => {
+      Logger.log('Error loading calendar events:', error);
+    }
+  );
 }
 
 // Update appointment and refresh calendar
@@ -890,6 +910,12 @@ function showModal(title, content) {
 
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
+  if (
+    window.serviceCalendar &&
+    typeof window.serviceCalendar.cleanup === 'function'
+  ) {
+    window.serviceCalendar.cleanup();
+  }
 }
 
 // Expose modal functions globally

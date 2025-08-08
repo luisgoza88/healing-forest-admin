@@ -4,6 +4,7 @@
 let serviceCalendars = {};
 let currentServiceId = null;
 let draggedEvent = null;
+let serviceEventsUnsubscribe = null;
 
 // Initialize service calendar with enhanced availability view
 async function initializeServiceCalendar(serviceId, containerId) {
@@ -22,7 +23,7 @@ async function initializeServiceCalendar(serviceId, containerId) {
           duration: serviceData.duration || 60,
           type: serviceData.isGroupService ? 'group' : 'individual',
           minTimeBetween: 15,
-          price: serviceData.price || 0
+          price: serviceData.price || 0,
         };
         // Store in SERVICE_CAPACITY for future use
         window.serviceCapacity.SERVICE_CAPACITY[serviceId] = serviceConfig;
@@ -39,10 +40,10 @@ async function initializeServiceCalendar(serviceId, containerId) {
 
   // For now, skip the availability panel to test if calendar loads
   console.log('Creating calendar for element:', calendarEl);
-  
+
   // Temporarily comment out the panel
   // const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
-  
+
   try {
     const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'dayGridMonth',
@@ -60,103 +61,100 @@ async function initializeServiceCalendar(serviceId, containerId) {
       slotLabelInterval: '01:00:00',
       expandRows: true,
 
-    // Enable drag and drop
-    editable: true,
-    droppable: true,
-    eventDurationEditable: false,
+      datesSet: function (info) {
+        loadServiceEvents(serviceId, info.start, info.end);
+      },
 
-    // Custom event rendering
-    eventDidMount: function (info) {
-      const event = info.event;
-      const el = info.el;
+      // Enable drag and drop
+      editable: true,
+      droppable: true,
+      eventDurationEditable: false,
 
-      // Add capacity info
-      const capacity = event.extendedProps.capacity || serviceConfig.capacity;
-      const booked = event.extendedProps.booked || 0;
-      const available = capacity - booked;
+      // Custom event rendering
+      eventDidMount: function (info) {
+        const event = info.event;
+        const el = info.el;
 
-      // Color coding based on availability
-      if (available === 0) {
-        el.style.backgroundColor = '#DC2626'; // Red - full
-        el.style.borderColor = '#991B1B';
-      } else if (available <= capacity * 0.25) {
-        el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
-        el.style.borderColor = '#D97706';
-      } else {
-        el.style.backgroundColor = '#16A34A'; // Green - available
-        el.style.borderColor = '#15803D';
-      }
+        // Add capacity info
+        const capacity = event.extendedProps.capacity || serviceConfig.capacity;
+        const booked = event.extendedProps.booked || 0;
+        const available = capacity - booked;
 
-      // Add tooltip
-      el.setAttribute(
-        'title',
-        `${serviceConfig.name}\nCapacidad: ${booked}/${capacity}\nDisponible: ${available}`
-      );
-    },
+        // Color coding based on availability
+        if (available === 0) {
+          el.style.backgroundColor = '#DC2626'; // Red - full
+          el.style.borderColor = '#991B1B';
+        } else if (available <= capacity * 0.25) {
+          el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
+          el.style.borderColor = '#D97706';
+        } else {
+          el.style.backgroundColor = '#16A34A'; // Green - available
+          el.style.borderColor = '#15803D';
+        }
 
-    // Event click handler
-    eventClick: function (info) {
-      showServiceEventDetails(info.event);
-    },
+        // Add tooltip
+        el.setAttribute(
+          'title',
+          `${serviceConfig.name}\nCapacidad: ${booked}/${capacity}\nDisponible: ${available}`
+        );
+      },
 
-    // Date click handler (for creating new events)
-    dateClick: function (info) {
-      if (
-        info.view.type === 'timeGridWeek' ||
-        info.view.type === 'timeGridDay'
-      ) {
-        showCreateServiceEvent(serviceId, info.date);
-      }
-    },
+      // Event click handler
+      eventClick: function (info) {
+        showServiceEventDetails(info.event);
+      },
 
-    // Drag start
-    eventDragStart: function (info) {
-      draggedEvent = info.event;
-    },
+      // Date click handler (for creating new events)
+      dateClick: function (info) {
+        if (
+          info.view.type === 'timeGridWeek' ||
+          info.view.type === 'timeGridDay'
+        ) {
+          showCreateServiceEvent(serviceId, info.date);
+        }
+      },
 
-    // Drop handler
-    eventDrop: async function (info) {
-      const confirmed = confirm(
-        `¿Mover ${info.event.title} a ${info.event.start.toLocaleString('es')}?`
-      );
+      // Drag start
+      eventDragStart: function (info) {
+        draggedEvent = info.event;
+      },
 
-      if (!confirmed) {
-        info.revert();
-        return;
-      }
+      // Drop handler
+      eventDrop: async function (info) {
+        const confirmed = confirm(
+          `¿Mover ${info.event.title} a ${info.event.start.toLocaleString('es')}?`
+        );
 
-      try {
-        await updateServiceEvent(info.event);
-      } catch (error) {
-        Logger.error('Error updating event:', error);
-        info.revert();
-        alert('Error al actualizar el evento');
-      }
-    },
+        if (!confirmed) {
+          info.revert();
+          return;
+        }
 
-    // External event drop
-    drop: async function (info) {
-      if (draggedEvent) {
-        const newDate = info.date;
-        await createServiceEventFromDrop(serviceId, draggedEvent, newDate);
-        draggedEvent = null;
-      }
-    },
+        try {
+          await updateServiceEvent(info.event);
+        } catch (error) {
+          Logger.error('Error updating event:', error);
+          info.revert();
+          alert('Error al actualizar el evento');
+        }
+      },
 
-    // Simple test events
-    events: [
-      {
-        title: 'Test Event',
-        start: new Date(),
-        backgroundColor: '#16A34A'
-      }
-    ]
-  });
+      // External event drop
+      drop: async function (info) {
+        if (draggedEvent) {
+          const newDate = info.date;
+          await createServiceEventFromDrop(serviceId, draggedEvent, newDate);
+          draggedEvent = null;
+        }
+      },
+
+      events: [],
+    });
 
     calendar.render();
     serviceCalendars[serviceId] = calendar;
     currentServiceId = serviceId;
-    
+
     console.log('Calendar rendered successfully');
     return calendar;
   } catch (error) {
@@ -196,116 +194,119 @@ function getBusinessHours(serviceId) {
 }
 
 // Load service events from Firestore
-async function loadServiceEvents(serviceId, startDate, endDate) {
-  try {
-    const events = [];
+function loadServiceEvents(serviceId, startDate, endDate) {
+  if (serviceEventsUnsubscribe) {
+    serviceEventsUnsubscribe();
+  }
 
-    // Get regular appointments
-    const appointmentsSnapshot = await db
-      .collection('appointments')
-      .where('serviceId', '==', serviceId)
-      .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
-      .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
-      .where('status', 'in', ['pendiente', 'confirmado'])
-      .get();
+  serviceEventsUnsubscribe = db
+    .collection('appointments')
+    .where('serviceId', '==', serviceId)
+    .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
+    .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
+    .where('status', 'in', ['pendiente', 'confirmado'])
+    .onSnapshot(
+      async (appointmentsSnapshot) => {
+        const events = [];
 
-    // Get service schedule for recurring events
-    const scheduleDoc = await db
-      .collection('service_schedules')
-      .doc(serviceId)
-      .get();
-    const schedule = scheduleDoc.data();
+        const scheduleDoc = await db
+          .collection('service_schedules')
+          .doc(serviceId)
+          .get();
+        const schedule = scheduleDoc.data();
 
-    // Count bookings by time slot
-    const bookingCounts = {};
-    appointmentsSnapshot.forEach((doc) => {
-      const appointment = doc.data();
-      const dateKey = appointment.date.toDate().toISOString().split('T')[0];
-      const timeKey = `${dateKey}_${appointment.time}`;
-      bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
-    });
+        const bookingCounts = {};
+        appointmentsSnapshot.forEach((doc) => {
+          const appointment = doc.data();
+          const dateKey = appointment.date.toDate().toISOString().split('T')[0];
+          const timeKey = `${dateKey}_${appointment.time}`;
+          bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
+        });
 
-    // Generate events from schedule
-    if (schedule && schedule.weeklySlots) {
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        const dayOfWeek = [
-          'sunday',
-          'monday',
-          'tuesday',
-          'wednesday',
-          'thursday',
-          'friday',
-          'saturday',
-        ][current.getDay()];
-        const daySlots = schedule.weeklySlots[dayOfWeek] || [];
+        if (schedule && schedule.weeklySlots) {
+          const current = new Date(startDate);
+          while (current <= endDate) {
+            const dayOfWeek = [
+              'sunday',
+              'monday',
+              'tuesday',
+              'wednesday',
+              'thursday',
+              'friday',
+              'saturday',
+            ][current.getDay()];
+            const daySlots = schedule.weeklySlots[dayOfWeek] || [];
 
-        for (const slot of daySlots) {
-          if (slot.enabled) {
-            const dateKey = current.toISOString().split('T')[0];
-            const timeKey = `${dateKey}_${slot.time}`;
-            const booked = bookingCounts[timeKey] || 0;
+            for (const slot of daySlots) {
+              if (slot.enabled) {
+                const dateKey = current.toISOString().split('T')[0];
+                const timeKey = `${dateKey}_${slot.time}`;
+                const booked = bookingCounts[timeKey] || 0;
 
-            const [hours, minutes] = slot.time.split(':').map(Number);
-            const eventStart = new Date(current);
-            eventStart.setHours(hours, minutes, 0, 0);
+                const [hours, minutes] = slot.time.split(':').map(Number);
+                const eventStart = new Date(current);
+                eventStart.setHours(hours, minutes, 0, 0);
 
-            const eventEnd = new Date(eventStart);
-            eventEnd.setMinutes(eventEnd.getMinutes() + schedule.duration);
+                const eventEnd = new Date(eventStart);
+                eventEnd.setMinutes(eventEnd.getMinutes() + schedule.duration);
 
-            events.push({
-              id: `${serviceId}_${dateKey}_${slot.time}`,
-              title: `${schedule.serviceName} (${booked}/${schedule.capacity})`,
-              start: eventStart,
-              end: eventEnd,
-              extendedProps: {
-                serviceId: serviceId,
-                capacity: schedule.capacity,
-                booked: booked,
-                available: schedule.capacity - booked,
-                time: slot.time,
-                staffId: slot.staffId,
-                type: 'scheduled',
-              },
-            });
+                events.push({
+                  id: `${serviceId}_${dateKey}_${slot.time}`,
+                  title: `${schedule.serviceName} (${booked}/${schedule.capacity})`,
+                  start: eventStart,
+                  end: eventEnd,
+                  extendedProps: {
+                    serviceId: serviceId,
+                    capacity: schedule.capacity,
+                    booked: booked,
+                    available: schedule.capacity - booked,
+                    time: slot.time,
+                    staffId: slot.staffId,
+                    type: 'scheduled',
+                  },
+                });
+              }
+            }
+
+            current.setDate(current.getDate() + 1);
           }
         }
 
-        current.setDate(current.getDate() + 1);
+        const blockedSnapshot = await db
+          .collection('service_blocks')
+          .where('serviceId', '==', serviceId)
+          .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
+          .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
+          .get();
+
+        blockedSnapshot.forEach((doc) => {
+          const block = doc.data();
+          const blockDate = block.date.toDate();
+
+          events.push({
+            id: doc.id,
+            title: `BLOQUEADO${block.reason ? ': ' + block.reason : ''}`,
+            start: blockDate,
+            allDay: true,
+            backgroundColor: '#6B7280',
+            borderColor: '#4B5563',
+            extendedProps: {
+              type: 'blocked',
+              reason: block.reason,
+            },
+          });
+        });
+
+        const calendar = serviceCalendars[serviceId];
+        if (calendar) {
+          calendar.removeAllEvents();
+          calendar.addEventSource(events);
+        }
+      },
+      (error) => {
+        Logger.error('Error loading service events:', error);
       }
-    }
-
-    // Add blocked dates
-    const blockedSnapshot = await db
-      .collection('service_blocks')
-      .where('serviceId', '==', serviceId)
-      .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
-      .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
-      .get();
-
-    blockedSnapshot.forEach((doc) => {
-      const block = doc.data();
-      const blockDate = block.date.toDate();
-
-      events.push({
-        id: doc.id,
-        title: `BLOQUEADO${block.reason ? ': ' + block.reason : ''}`,
-        start: blockDate,
-        allDay: true,
-        backgroundColor: '#6B7280',
-        borderColor: '#4B5563',
-        extendedProps: {
-          type: 'blocked',
-          reason: block.reason,
-        },
-      });
-    });
-
-    return events;
-  } catch (error) {
-    Logger.error('Error loading service events:', error);
-    return [];
-  }
+    );
 }
 
 // Show service event details
@@ -611,7 +612,7 @@ async function loadStaffOptions(serviceId) {
 async function showServiceCalendar(serviceId) {
   // Try to get service config from predefined services
   let serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-  
+
   // If not found, get from Firestore
   if (!serviceConfig) {
     try {
@@ -623,7 +624,7 @@ async function showServiceCalendar(serviceId) {
           capacity: serviceData.maxParticipants || serviceData.capacity || 1,
           duration: serviceData.duration || 60,
           type: serviceData.isGroupService ? 'group' : 'individual',
-          price: serviceData.price || 0
+          price: serviceData.price || 0,
         };
       } else {
         alert('Servicio no encontrado');
@@ -1044,19 +1045,21 @@ async function cancelServiceSlot(serviceId, date, time) {
 // Add availability panel to calendar view
 function addAvailabilityPanel(calendarEl, serviceId) {
   const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-  
+
   if (!serviceConfig) {
     Logger.error('Service config not found for:', serviceId);
     return calendarEl; // Return original element if no config
   }
-  
+
   // Create wrapper for calendar and panel
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%;';
-  
+  wrapper.style.cssText =
+    'display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%;';
+
   // Create availability panel
   const panel = document.createElement('div');
-  panel.style.cssText = 'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
+  panel.style.cssText =
+    'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
   panel.innerHTML = `
     <h3 style="margin-top: 0; color: #1e3a3f;">📊 Disponibilidad</h3>
     
@@ -1101,24 +1104,25 @@ function addAvailabilityPanel(calendarEl, serviceId) {
       <div style="font-size: 13px;">Cargando...</div>
     </div>
   `;
-  
+
   // Create calendar container
   const calendarContainer = document.createElement('div');
   calendarContainer.id = calendarEl.id + '_calendar';
-  calendarContainer.style.cssText = 'background: white; padding: 20px; border-radius: 8px;';
-  
+  calendarContainer.style.cssText =
+    'background: white; padding: 20px; border-radius: 8px;';
+
   // Replace original element
   calendarEl.innerHTML = '';
   wrapper.appendChild(panel);
   wrapper.appendChild(calendarContainer);
   calendarEl.appendChild(wrapper);
-  
+
   // Update calendar element reference
   calendarEl = calendarContainer;
-  
+
   // Load initial stats
   updateAvailabilityPanel(serviceId);
-  
+
   return calendarContainer;
 }
 
@@ -1127,8 +1131,11 @@ async function updateAvailabilityPanel(serviceId) {
   try {
     // Get today's availability
     const today = new Date();
-    const availability = await window.serviceCapacity.getServiceAvailability(serviceId, today);
-    
+    const availability = await window.serviceCapacity.getServiceAvailability(
+      serviceId,
+      today
+    );
+
     // Update quick stats
     const statsEl = document.getElementById(`quickStats_${serviceId}`);
     if (statsEl) {
@@ -1143,22 +1150,29 @@ async function updateAvailabilityPanel(serviceId) {
         </div>
       `;
     }
-    
+
     // Update today's availability
     const todayEl = document.getElementById(`todayAvailability_${serviceId}`);
     if (todayEl && availability.slots) {
-      let slotsHtml = '<h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>';
-      
-      const availableSlots = availability.slots.filter(s => s.enabled && s.available > 0);
-      
+      let slotsHtml =
+        '<h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>';
+
+      const availableSlots = availability.slots.filter(
+        (s) => s.enabled && s.available > 0
+      );
+
       if (availableSlots.length === 0) {
-        slotsHtml += '<p style="font-size: 13px; color: #DC2626;">No hay cupos disponibles para hoy</p>';
+        slotsHtml +=
+          '<p style="font-size: 13px; color: #DC2626;">No hay cupos disponibles para hoy</p>';
       } else {
-        slotsHtml += '<div style="display: flex; flex-direction: column; gap: 5px;">';
-        availableSlots.forEach(slot => {
-          const percentage = Math.round((slot.available / slot.totalCapacity) * 100);
+        slotsHtml +=
+          '<div style="display: flex; flex-direction: column; gap: 5px;">';
+        availableSlots.forEach((slot) => {
+          const percentage = Math.round(
+            (slot.available / slot.totalCapacity) * 100
+          );
           const color = percentage > 25 ? '#16A34A' : '#F59E0B';
-          
+
           slotsHtml += `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 4px;">
               <span style="font-size: 13px;">${slot.time}</span>
@@ -1173,11 +1187,18 @@ async function updateAvailabilityPanel(serviceId) {
         });
         slotsHtml += '</div>';
       }
-      
+
       todayEl.innerHTML = slotsHtml;
     }
   } catch (error) {
     Logger.error('Error updating availability panel:', error);
+  }
+}
+
+function cleanupServiceEventsListener() {
+  if (serviceEventsUnsubscribe) {
+    serviceEventsUnsubscribe();
+    serviceEventsUnsubscribe = null;
   }
 }
 
@@ -1187,11 +1208,11 @@ async function getWeekStats(serviceId) {
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
-  
+
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 6);
   endOfWeek.setHours(23, 59, 59, 999);
-  
+
   try {
     const snapshot = await db
       .collection('appointments')
@@ -1199,11 +1220,11 @@ async function getWeekStats(serviceId) {
       .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfWeek))
       .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfWeek))
       .get();
-    
+
     let totalBooked = 0;
     let classCount = {};
-    
-    snapshot.forEach(doc => {
+
+    snapshot.forEach((doc) => {
       const data = doc.data();
       const key = `${data.date.toDate().toDateString()}_${data.time}`;
       if (!classCount[key]) {
@@ -1212,18 +1233,19 @@ async function getWeekStats(serviceId) {
       classCount[key]++;
       totalBooked++;
     });
-    
+
     const totalClasses = Object.keys(classCount).length;
     const totalCapacity = totalClasses * serviceConfig.capacity;
-    const avgOccupancy = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
+    const avgOccupancy =
+      totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
     const estimatedRevenue = totalBooked * (serviceConfig.price || 50);
-    
+
     return {
       totalClasses,
       totalCapacity,
       totalBooked,
       avgOccupancy,
-      estimatedRevenue
+      estimatedRevenue,
     };
   } catch (error) {
     Logger.error('Error getting week stats:', error);
@@ -1232,7 +1254,7 @@ async function getWeekStats(serviceId) {
       totalCapacity: 0,
       totalBooked: 0,
       avgOccupancy: 0,
-      estimatedRevenue: 0
+      estimatedRevenue: 0,
     };
   }
 }
@@ -1245,4 +1267,5 @@ window.serviceCalendar = {
   showServiceStats,
   exportServiceSchedule,
   updateAvailabilityPanel,
+  cleanup: cleanupServiceEventsListener,
 };
