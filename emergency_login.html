@@ -1,216 +1,225 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Emergency Login - Healing Forest</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="config.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #16a34a;
-            text-align: center;
-        }
-        .form-group {
-            margin: 20px 0;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #16a34a;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #15803d;
-        }
-        .console {
-            background: #000;
-            color: #0f0;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .error {
-            color: #ff0000;
-        }
-        .success {
-            color: #00ff00;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #16a34a;
+        text-align: center;
+      }
+      .form-group {
+        margin: 20px 0;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      button {
+        width: 100%;
+        padding: 12px;
+        background: #16a34a;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #15803d;
+      }
+      .console {
+        background: #000;
+        color: #0f0;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .error {
+        color: #ff0000;
+      }
+      .success {
+        color: #00ff00;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>🌳 Emergency Login Test</h1>
-        
-        <div class="form-group">
-            <label>Email:</label>
-            <input type="email" id="email" placeholder="tu@email.com">
-        </div>
-        
-        <div class="form-group">
-            <label>Contraseña:</label>
-            <input type="password" id="password" placeholder="Tu contraseña">
-        </div>
-        
-        <button onclick="testLogin()">Test Login</button>
-        
-        <div class="console" id="console">
-            <div>Console output:</div>
-        </div>
-        
-        <div style="margin-top: 20px;">
-            <h3>UIDs conocidos:</h3>
-            <button onclick="checkUID('siMvQbeGTsRbHbewQEcHlkQ52wx1')">Check UID 1</button>
-            <button onclick="checkUID('LaZID8kEzZWEGivcop8P147eF9P2')">Check UID 2</button>
-        </div>
+      <h1>🌳 Emergency Login Test</h1>
+
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" id="email" placeholder="tu@email.com" />
+      </div>
+
+      <div class="form-group">
+        <label>Contraseña:</label>
+        <input type="password" id="password" placeholder="Tu contraseña" />
+      </div>
+
+      <button onclick="testLogin()">Test Login</button>
+
+      <div class="console" id="console">
+        <div>Console output:</div>
+      </div>
+
+      <div style="margin-top: 20px">
+        <h3>UIDs conocidos:</h3>
+        <button onclick="checkUID('siMvQbeGTsRbHbewQEcHlkQ52wx1')">
+          Check UID 1
+        </button>
+        <button onclick="checkUID('LaZID8kEzZWEGivcop8P147eF9P2')">
+          Check UID 2
+        </button>
+      </div>
     </div>
 
     <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: 'AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM',
-            authDomain: 'healling-forest.firebaseapp.com',
-            projectId: 'healling-forest',
-            storageBucket: 'healling-forest.firebasestorage.app',
-            messagingSenderId: '657330224656',
-            appId: '1:657330224656:web:admin'
-        };
+      // Initialize Firebase
+      const firebaseConfig = window.AppConfig.firebase;
 
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
 
-        function log(message, type = '') {
-            const consoleDiv = document.getElementById('console');
-            const entry = document.createElement('div');
-            entry.className = type;
-            entry.textContent = `> ${new Date().toLocaleTimeString()} - ${message}`;
-            consoleDiv.appendChild(entry);
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      function log(message, type = '') {
+        const consoleDiv = document.getElementById('console');
+        const entry = document.createElement('div');
+        entry.className = type;
+        entry.textContent = `> ${new Date().toLocaleTimeString()} - ${message}`;
+        consoleDiv.appendChild(entry);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      }
+
+      async function testLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        if (!email || !password) {
+          log('Por favor ingresa email y contraseña', 'error');
+          return;
         }
 
-        async function testLogin() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            if (!email || !password) {
-                log('Por favor ingresa email y contraseña', 'error');
-                return;
-            }
-            
-            log('Iniciando prueba de login...');
-            
-            try {
-                // Step 1: Sign in
-                log('Paso 1: Autenticando con Firebase Auth...');
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                const user = userCredential.user;
-                log(`✓ Autenticación exitosa. UID: ${user.uid}`, 'success');
-                
-                // Step 2: Get user document
-                log('Paso 2: Buscando documento del usuario en Firestore...');
-                const userDoc = await db.collection('users').doc(user.uid).get();
-                
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    log(`✓ Documento encontrado. Datos: ${JSON.stringify(userData)}`, 'success');
-                    
-                    // Step 3: Check role
-                    log('Paso 3: Verificando rol de admin...');
-                    if (userData.role === 'admin') {
-                        log('✓ Usuario tiene rol de admin!', 'success');
-                        log('LOGIN EXITOSO - Puedes entrar al panel', 'success');
-                    } else {
-                        log(`✗ Usuario NO tiene rol de admin. Rol actual: ${userData.role || 'ninguno'}`, 'error');
-                    }
-                } else {
-                    log('✗ No se encontró documento del usuario en Firestore', 'error');
-                    log('Creando documento con rol admin...', 'error');
-                    
-                    // Create user document with admin role
-                    await db.collection('users').doc(user.uid).set({
-                        email: email,
-                        role: 'admin',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    log('✓ Documento creado con rol admin. Intenta login de nuevo.', 'success');
-                }
-                
-                // Sign out
-                await auth.signOut();
-                log('Sesión cerrada para prueba');
-                
-            } catch (error) {
-                log(`✗ Error: ${error.code} - ${error.message}`, 'error');
-            }
-        }
+        log('Iniciando prueba de login...');
 
-        async function checkUID(uid) {
-            log(`\nVerificando UID: ${uid}`);
-            
-            try {
-                const userDoc = await db.collection('users').doc(uid).get();
-                
-                if (userDoc.exists) {
-                    const data = userDoc.data();
-                    log(`✓ Usuario encontrado:`, 'success');
-                    log(`  Email: ${data.email || 'No registrado'}`);
-                    log(`  Rol: ${data.role || 'Sin rol'}`);
-                    log(`  Nombre: ${data.name || 'No especificado'}`);
-                } else {
-                    log(`✗ No existe documento para este UID`, 'error');
-                }
-            } catch (error) {
-                log(`✗ Error al verificar: ${error.message}`, 'error');
-            }
-        }
+        try {
+          // Step 1: Sign in
+          log('Paso 1: Autenticando con Firebase Auth...');
+          const userCredential = await auth.signInWithEmailAndPassword(
+            email,
+            password
+          );
+          const user = userCredential.user;
+          log(`✓ Autenticación exitosa. UID: ${user.uid}`, 'success');
 
-        // Test connection on load
-        window.onload = async () => {
-            log('Probando conexión con Firebase...');
-            try {
-                await db.collection('test').doc('test').set({ test: true });
-                await db.collection('test').doc('test').delete();
-                log('✓ Conexión con Firebase exitosa', 'success');
-            } catch (error) {
-                log('✗ Error de conexión con Firebase', 'error');
+          // Step 2: Get user document
+          log('Paso 2: Buscando documento del usuario en Firestore...');
+          const userDoc = await db.collection('users').doc(user.uid).get();
+
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            log(
+              `✓ Documento encontrado. Datos: ${JSON.stringify(userData)}`,
+              'success'
+            );
+
+            // Step 3: Check role
+            log('Paso 3: Verificando rol de admin...');
+            if (userData.role === 'admin') {
+              log('✓ Usuario tiene rol de admin!', 'success');
+              log('LOGIN EXITOSO - Puedes entrar al panel', 'success');
+            } else {
+              log(
+                `✗ Usuario NO tiene rol de admin. Rol actual: ${userData.role || 'ninguno'}`,
+                'error'
+              );
             }
-        };
+          } else {
+            log('✗ No se encontró documento del usuario en Firestore', 'error');
+            log('Creando documento con rol admin...', 'error');
+
+            // Create user document with admin role
+            await db.collection('users').doc(user.uid).set({
+              email: email,
+              role: 'admin',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+
+            log(
+              '✓ Documento creado con rol admin. Intenta login de nuevo.',
+              'success'
+            );
+          }
+
+          // Sign out
+          await auth.signOut();
+          log('Sesión cerrada para prueba');
+        } catch (error) {
+          log(`✗ Error: ${error.code} - ${error.message}`, 'error');
+        }
+      }
+
+      async function checkUID(uid) {
+        log(`\nVerificando UID: ${uid}`);
+
+        try {
+          const userDoc = await db.collection('users').doc(uid).get();
+
+          if (userDoc.exists) {
+            const data = userDoc.data();
+            log(`✓ Usuario encontrado:`, 'success');
+            log(`  Email: ${data.email || 'No registrado'}`);
+            log(`  Rol: ${data.role || 'Sin rol'}`);
+            log(`  Nombre: ${data.name || 'No especificado'}`);
+          } else {
+            log(`✗ No existe documento para este UID`, 'error');
+          }
+        } catch (error) {
+          log(`✗ Error al verificar: ${error.message}`, 'error');
+        }
+      }
+
+      // Test connection on load
+      window.onload = async () => {
+        log('Probando conexión con Firebase...');
+        try {
+          await db.collection('test').doc('test').set({ test: true });
+          await db.collection('test').doc('test').delete();
+          log('✓ Conexión con Firebase exitosa', 'success');
+        } catch (error) {
+          log('✗ Error de conexión con Firebase', 'error');
+        }
+      };
     </script>
-</body>
+  </body>
 </html>
