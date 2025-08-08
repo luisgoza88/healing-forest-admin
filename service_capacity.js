@@ -206,17 +206,17 @@ async function getServiceAvailability(serviceId, date) {
         .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfDay))
         .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfDay))
         .get();
-      
+
       // Filter results in memory
       bookingsSnapshot = {
-        docs: bookingsSnapshot.docs.filter(doc => {
+        docs: bookingsSnapshot.docs.filter((doc) => {
           const data = doc.data();
           return data.status === 'pendiente' || data.status === 'confirmado';
         }),
-        size: bookingsSnapshot.docs.filter(doc => {
+        size: bookingsSnapshot.docs.filter((doc) => {
           const data = doc.data();
           return data.status === 'pendiente' || data.status === 'confirmado';
-        }).length
+        }).length,
       };
     }
 
@@ -599,12 +599,38 @@ async function getServiceStatistics(serviceId, startDate, endDate) {
     const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
     stats.peakHours = Object.fromEntries(sortedHours.slice(0, 3));
 
-    // Calculate average occupancy
+    // Calculate average occupancy based on configured hours
     const serviceConfig = SERVICE_CAPACITY[serviceId];
-    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-    const averageSlotsPerDay = 8; // Approximate
-    const totalCapacity =
-      totalDays * averageSlotsPerDay * serviceConfig.capacity;
+    const hours = SERVICE_HOURS[serviceId] || SERVICE_HOURS.default;
+    let totalSlots = 0;
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dayOfWeek = [
+        'sunday',
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ][currentDate.getDay()];
+
+      const dayHours = hours[dayOfWeek];
+      if (dayHours && dayHours.open && dayHours.close) {
+        const slotsForDay = generateDaySlots(
+          dayHours.open,
+          dayHours.close,
+          serviceConfig.duration,
+          serviceConfig.minTimeBetween
+        );
+        totalSlots += slotsForDay.length;
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const totalCapacity = totalSlots * serviceConfig.capacity;
 
     stats.averageOccupancy =
       totalCapacity > 0
