@@ -37,24 +37,28 @@ async function initializeServiceCalendar(serviceId, containerId) {
     return;
   }
 
-  // Add availability panel and get new calendar container
-  const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
-
-  const calendar = new FullCalendar.Calendar(calendarContainer, {
-    initialView: 'timeGridWeek',
-    locale: 'es',
-    height: 'auto',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay',
-    },
-    businessHours: getBusinessHours(serviceId),
-    slotMinTime: '06:00:00',
-    slotMaxTime: '21:00:00',
-    slotDuration: '00:30:00',
-    slotLabelInterval: '01:00:00',
-    expandRows: true,
+  // For now, skip the availability panel to test if calendar loads
+  console.log('Creating calendar for element:', calendarEl);
+  
+  // Temporarily comment out the panel
+  // const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
+  
+  try {
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      locale: 'es',
+      height: 600,
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay',
+      },
+      // businessHours: getBusinessHours(serviceId),
+      slotMinTime: '06:00:00',
+      slotMaxTime: '21:00:00',
+      slotDuration: '00:30:00',
+      slotLabelInterval: '01:00:00',
+      expandRows: true,
 
     // Enable drag and drop
     editable: true,
@@ -139,34 +143,26 @@ async function initializeServiceCalendar(serviceId, containerId) {
       }
     },
 
-    // Load events
-    events: async function (fetchInfo, successCallback, failureCallback) {
-      try {
-        const events = await loadServiceEvents(
-          serviceId,
-          fetchInfo.start,
-          fetchInfo.end
-        );
-        successCallback(events);
-        // Update availability panel when events are loaded
-        updateAvailabilityPanel(serviceId);
-      } catch (error) {
-        Logger.error('Error loading events:', error);
-        failureCallback(error);
+    // Simple test events
+    events: [
+      {
+        title: 'Test Event',
+        start: new Date(),
+        backgroundColor: '#16A34A'
       }
-    },
-    
-    // Update panel when navigating dates
-    datesSet: function() {
-      updateAvailabilityPanel(serviceId);
-    },
+    ]
   });
 
-  calendar.render();
-  serviceCalendars[serviceId] = calendar;
-  currentServiceId = serviceId;
-
-  return calendar;
+    calendar.render();
+    serviceCalendars[serviceId] = calendar;
+    currentServiceId = serviceId;
+    
+    console.log('Calendar rendered successfully');
+    return calendar;
+  } catch (error) {
+    console.error('Error creating calendar:', error);
+    throw error;
+  }
 }
 
 // Get business hours for a service
@@ -641,20 +637,24 @@ async function showServiceCalendar(serviceId) {
   }
 
   const content = `
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 15px 0;">${serviceConfig.name} - Calendario de Clases</h3>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn" onclick="showServiceSettings('${serviceId}')">⚙️ Configuración</button>
-                    <button class="btn" style="background: #0EA5E9;" onclick="showServiceStats('${serviceId}')">📊 Estadísticas</button>
-                    <button class="btn" style="background: #F59E0B;" onclick="exportServiceSchedule('${serviceId}')">📥 Exportar</button>
-                </div>
-                <div style="font-size: 13px; color: #666;">
-                    💡 Haz clic en una fecha/hora para crear una nueva cita
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 15px 0;">${serviceConfig.name} - Calendario de Clases</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="window.serviceCalendar.showServiceSettings('${serviceId}')">⚙️ Configuración</button>
+                        <button class="btn" style="background: #0EA5E9;" onclick="window.serviceCalendar.showServiceStats('${serviceId}')">📊 Estadísticas</button>
+                        <button class="btn" style="background: #F59E0B;" onclick="window.serviceCalendar.exportServiceSchedule('${serviceId}')">📥 Exportar</button>
+                    </div>
+                    <div style="font-size: 13px; color: #666;">
+                        💡 Haz clic en una fecha/hora para crear una nueva cita
+                    </div>
                 </div>
             </div>
+            <div id="serviceCalendarContainer" style="width: 100%; min-height: 700px; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+                <!-- Calendar will be rendered here -->
+            </div>
         </div>
-        <div id="serviceCalendarContainer" style="min-height: 700px;"></div>
     `;
 
   // Create a larger modal for calendar
@@ -668,8 +668,19 @@ async function showServiceCalendar(serviceId) {
 
   // Initialize calendar after modal is shown
   setTimeout(async () => {
-    await initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
-  }, 100);
+    try {
+      console.log('Initializing calendar for service:', serviceId);
+      await initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
+    } catch (error) {
+      Logger.error('Error initializing calendar:', error);
+      document.getElementById('serviceCalendarContainer').innerHTML = `
+        <div style="padding: 50px; text-align: center; color: #DC2626;">
+          <p>Error al cargar el calendario</p>
+          <p style="font-size: 14px; color: #666;">${error.message}</p>
+        </div>
+      `;
+    }
+  }, 200);
 }
 
 // Show service settings
