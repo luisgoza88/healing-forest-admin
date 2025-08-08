@@ -6,9 +6,31 @@ let currentServiceId = null;
 let draggedEvent = null;
 
 // Initialize service calendar with enhanced availability view
-function initializeServiceCalendar(serviceId, containerId) {
+async function initializeServiceCalendar(serviceId, containerId) {
   const calendarEl = document.getElementById(containerId);
-  const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+  let serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+
+  // If not found in predefined services, get from Firestore
+  if (!serviceConfig) {
+    try {
+      const serviceDoc = await db.collection('services').doc(serviceId).get();
+      if (serviceDoc.exists) {
+        const serviceData = serviceDoc.data();
+        serviceConfig = {
+          name: serviceData.name || serviceData.serviceName || 'Servicio',
+          capacity: serviceData.maxParticipants || serviceData.capacity || 1,
+          duration: serviceData.duration || 60,
+          type: serviceData.isGroupService ? 'group' : 'individual',
+          minTimeBetween: 15,
+          price: serviceData.price || 0
+        };
+        // Store in SERVICE_CAPACITY for future use
+        window.serviceCapacity.SERVICE_CAPACITY[serviceId] = serviceConfig;
+      }
+    } catch (error) {
+      Logger.error('Error loading service from Firestore:', error);
+    }
+  }
 
   if (!calendarEl || !serviceConfig) {
     Logger.error('Invalid calendar container or service configuration');
@@ -590,8 +612,33 @@ async function loadStaffOptions(serviceId) {
 }
 
 // Show service calendar modal
-function showServiceCalendar(serviceId) {
-  const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+async function showServiceCalendar(serviceId) {
+  // Try to get service config from predefined services
+  let serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+  
+  // If not found, get from Firestore
+  if (!serviceConfig) {
+    try {
+      const serviceDoc = await db.collection('services').doc(serviceId).get();
+      if (serviceDoc.exists) {
+        const serviceData = serviceDoc.data();
+        serviceConfig = {
+          name: serviceData.name || serviceData.serviceName || 'Servicio',
+          capacity: serviceData.maxParticipants || serviceData.capacity || 1,
+          duration: serviceData.duration || 60,
+          type: serviceData.isGroupService ? 'group' : 'individual',
+          price: serviceData.price || 0
+        };
+      } else {
+        alert('Servicio no encontrado');
+        return;
+      }
+    } catch (error) {
+      Logger.error('Error loading service:', error);
+      alert('Error al cargar el servicio');
+      return;
+    }
+  }
 
   const content = `
         <div style="margin-bottom: 20px;">
@@ -620,8 +667,8 @@ function showServiceCalendar(serviceId) {
   showModal('', content);
 
   // Initialize calendar after modal is shown
-  setTimeout(() => {
-    initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
+  setTimeout(async () => {
+    await initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
   }, 100);
 }
 
@@ -986,6 +1033,11 @@ async function cancelServiceSlot(serviceId, date, time) {
 // Add availability panel to calendar view
 function addAvailabilityPanel(calendarEl, serviceId) {
   const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
+  
+  if (!serviceConfig) {
+    Logger.error('Service config not found for:', serviceId);
+    return calendarEl; // Return original element if no config
+  }
   
   // Create wrapper for calendar and panel
   const wrapper = document.createElement('div');

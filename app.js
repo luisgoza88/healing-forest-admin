@@ -724,7 +724,7 @@ async function loadServices() {
                             ${capacityInfo ? `<br><small>Capacidad: ${capacityInfo.capacity} ${capacityInfo.type === 'group' ? 'personas' : 'persona'}</small>` : ''}
                         </td>
                         <td>
-                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="showServiceCalendar('${doc.id}', '${serviceName}')">📅 Gestionar Horarios</button><br>` : ''}
+                            ${hasCapacityManagement ? `<button class="action-btn" style="background: #8B5CF6; color: white; margin-bottom: 5px;" onclick="window.serviceCalendar.showServiceCalendar('${doc.id}')">📅 Gestionar Horarios</button><br>` : ''}
                             <button class="action-btn edit-btn" onclick="editService('${doc.id}')">Editar</button>
                             <button class="action-btn delete-btn" onclick="deleteService('${doc.id}')">Eliminar</button>
                         </td>
@@ -827,6 +827,10 @@ function showModal(title, content) {
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
 }
+
+// Expose modal functions globally
+window.showModal = showModal;
+window.closeModal = closeModal;
 
 // Close calendar modal
 function closeCalendarModal() {
