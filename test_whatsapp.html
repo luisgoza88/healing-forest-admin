@@ -5,6 +5,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   </head>
   <body
     style="
@@ -276,7 +277,7 @@ Gracias por confiar en Healing Forest! 🌳`;
             : type === 'error'
               ? '#c33'
               : '#1976d2';
-        resultDiv.innerHTML = `<strong>${message}</strong>`;
+        resultDiv.innerHTML = DOMPurify.sanitize(`<strong>${message}</strong>`);
       }
     </script>
   </body>

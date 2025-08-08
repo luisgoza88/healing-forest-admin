@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Enviar WhatsApp Ahora - Healing Forest</title>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   </head>
   <body
     style="
@@ -77,7 +78,7 @@ Tu sistema está listo para:
         const result = document.getElementById('result');
 
         result.style.display = 'block';
-        result.innerHTML = '<p>Enviando mensaje...</p>';
+        result.innerHTML = DOMPurify.sanitize('<p>Enviando mensaje...</p>');
 
         try {
           // Intentar enviar via servidor local
@@ -98,11 +99,11 @@ Tu sistema está listo para:
             result.style.background = '#d4edda';
             result.style.padding = '20px';
             result.style.borderRadius = '8px';
-            result.innerHTML = `
-                        <h3>✅ ¡Mensaje enviado!</h3>
-                        <p>Revisa tu WhatsApp (+573102962552)</p>
-                        <p style="color: #666; font-size: 14px;">ID: ${data.result.sid}</p>
-                    `;
+            result.innerHTML = DOMPurify.sanitize(`
+                          <h3>✅ ¡Mensaje enviado!</h3>
+                          <p>Revisa tu WhatsApp (+573102962552)</p>
+                          <p style="color: #666; font-size: 14px;">ID: ${data.result.sid}</p>
+                      `);
           } else {
             throw new Error(data.error || 'Error desconocido');
           }
@@ -110,17 +111,17 @@ Tu sistema está listo para:
           result.style.background = '#fee';
           result.style.padding = '20px';
           result.style.borderRadius = '8px';
-          result.innerHTML = `
-                    <h3>❌ Error</h3>
-                    <p>${error.message}</p>
-                    <div style="margin-top: 15px; padding: 15px; background: #fef3c7; border-radius: 5px;">
-                        <p><strong>¿No funciona?</strong> Primero inicia el servidor:</p>
-                        <code style="background: #f3f4f6; padding: 5px; display: block; margin: 10px 0;">
-                        cd /Users/marianatejada/Desktop/HEALLING\ APP/admin_panel_simple<br>
-                        node whatsapp_server.js
-                        </code>
-                    </div>
-                `;
+          result.innerHTML = DOMPurify.sanitize(`
+                      <h3>❌ Error</h3>
+                      <p>${error.message}</p>
+                      <div style="margin-top: 15px; padding: 15px; background: #fef3c7; border-radius: 5px;">
+                          <p><strong>¿No funciona?</strong> Primero inicia el servidor:</p>
+                          <code style="background: #f3f4f6; padding: 5px; display: block; margin: 10px 0;">
+                          cd /Users/marianatejada/Desktop/HEALLING\\ APP/admin_panel_simple<br>
+                          node whatsapp_server.js
+                          </code>
+                      </div>
+                  `);
         }
       }
     </script>
