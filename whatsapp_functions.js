@@ -32,7 +32,8 @@ async function sendSingleWhatsAppMessage(recipient, message) {
     updateWhatsAppStats();
 
     // Listen for status updates
-    db.collection('whatsapp_queue')
+    const unsubscribe = db
+      .collection('whatsapp_queue')
       .doc(docRef.id)
       .onSnapshot((doc) => {
         const data = doc.data();
@@ -41,6 +42,7 @@ async function sendSingleWhatsAppMessage(recipient, message) {
           whatsappStats.pending--;
           updateWhatsAppLog(recipient.phone, '✅ Entregado', 'success');
           updateWhatsAppStats();
+          unsubscribe();
         } else if (data.status === 'failed') {
           whatsappStats.failed++;
           whatsappStats.pending--;
@@ -50,8 +52,10 @@ async function sendSingleWhatsAppMessage(recipient, message) {
             'error'
           );
           updateWhatsAppStats();
+          unsubscribe();
         }
       });
+    ListenerManager.add(unsubscribe);
 
     whatsappStats.pending++;
     updateWhatsAppStats();

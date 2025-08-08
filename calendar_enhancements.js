@@ -704,7 +704,8 @@ function initializeRealTimeUpdates() {
   Logger.log('Initializing real-time updates...');
 
   // Listen for new appointments
-  db.collection('appointments')
+  const unsubscribeNew = db
+    .collection('appointments')
     .where('createdAt', '>=', new Date())
     .onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -728,9 +729,11 @@ function initializeRealTimeUpdates() {
         }
       });
     });
+  ListenerManager.add(unsubscribeNew);
 
   // Listen for appointment updates
-  db.collection('appointments')
+  const unsubscribeUpdates = db
+    .collection('appointments')
     .where('updatedAt', '>=', new Date())
     .onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
@@ -742,6 +745,7 @@ function initializeRealTimeUpdates() {
         }
       });
     });
+  ListenerManager.add(unsubscribeUpdates);
 }
 
 // Update appointment in UI without refresh
