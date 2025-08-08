@@ -1,7 +1,6 @@
 // Service Calendar Management
 // Handles individual calendar views, drag-and-drop scheduling, and recurring class management
 
-let serviceCalendars = {};
 let currentServiceId = null;
 let draggedEvent = null;
 let serviceEventsUnsubscribe = null;
@@ -45,30 +44,14 @@ async function initializeServiceCalendar(serviceId, containerId) {
   // const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
 
   try {
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      locale: 'es',
+    // Use calendarUtils to create service calendar
+    const calendar = calendarUtils.createCalendar(serviceId, calendarEl, {
       height: 600,
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay',
-      },
-      // businessHours: getBusinessHours(serviceId),
-      slotMinTime: '06:00:00',
-      slotMaxTime: '21:00:00',
-      slotDuration: '00:30:00',
       slotLabelInterval: '01:00:00',
-      expandRows: true,
-
+      
       datesSet: function (info) {
         loadServiceEvents(serviceId, info.start, info.end);
       },
-
-      // Enable drag and drop
-      editable: true,
-      droppable: true,
-      eventDurationEditable: false,
 
       // Custom event rendering
       eventDidMount: function (info) {
@@ -151,8 +134,7 @@ async function initializeServiceCalendar(serviceId, containerId) {
       events: [],
     });
 
-    calendar.render();
-    serviceCalendars[serviceId] = calendar;
+    // Calendar reference is now stored in calendarUtils
     currentServiceId = serviceId;
 
     console.log('Calendar rendered successfully');
@@ -297,7 +279,7 @@ function loadServiceEvents(serviceId, startDate, endDate) {
           });
         });
 
-        const calendar = serviceCalendars[serviceId];
+        const calendar = calendarUtils.getCalendar(serviceId);
         if (calendar) {
           calendar.removeAllEvents();
           calendar.addEventSource(events);
@@ -466,7 +448,7 @@ function showCreateServiceEvent(serviceId, date) {
       try {
         await createServiceEvent(serviceId, formData);
         closeModal();
-        serviceCalendars[serviceId].refetchEvents();
+        calendarUtils.refetchEvents(serviceId);
       } catch (error) {
         alert('Error al crear el evento: ' + error.message);
       }
@@ -783,8 +765,8 @@ function showServiceSettings(serviceId) {
         closeModal();
 
         // Refresh calendar
-        if (serviceCalendars[serviceId]) {
-          serviceCalendars[serviceId].refetchEvents();
+        if (calendarUtils.getCalendar(serviceId)) {
+          calendarUtils.refetchEvents(serviceId);
         }
       } catch (error) {
         alert('Error al actualizar configuración: ' + error.message);
@@ -890,7 +872,7 @@ function createServiceStatsChart(stats) {
 // Export service schedule
 function exportServiceSchedule(serviceId) {
   const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-  const calendar = serviceCalendars[serviceId];
+  const calendar = calendarUtils.getCalendar(serviceId);
 
   if (!calendar) {
     alert('Por favor abre el calendario primero');
@@ -1033,8 +1015,8 @@ async function cancelServiceSlot(serviceId, date, time) {
     closeModal();
 
     // Refresh calendar
-    if (serviceCalendars[serviceId]) {
-      serviceCalendars[serviceId].refetchEvents();
+    if (calendarUtils.getCalendar(serviceId)) {
+      calendarUtils.refetchEvents(serviceId);
     }
   } catch (error) {
     Logger.error('Error cancelling service slot:', error);

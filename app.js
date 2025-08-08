@@ -8,7 +8,6 @@ const db = firebase.firestore();
 
 // Global variables
 let currentUser = null;
-let calendar = null;
 let appointmentsChart = null;
 let servicesChart = null;
 let calendarEventsUnsubscribe = null;
@@ -391,7 +390,7 @@ function toggleCalendarView() {
     tableView.style.display = 'none';
     toggleText.textContent = 'Ver Tabla';
 
-    if (!calendar) {
+    if (!calendarUtils.getCalendar('main')) {
       initializeCalendar();
     }
     loadCalendarEvents();
@@ -409,18 +408,15 @@ function toggleCalendarView() {
 // Initialize calendar
 function initializeCalendar() {
   const calendarEl = document.getElementById('calendar');
+  
+  if (!calendarEl) {
+    Logger.error('Calendar element not found');
+    return;
+  }
 
-  calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'dayGridMonth',
-    locale: 'es',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay',
-    },
+  // Use calendarUtils to create calendar
+  const calendarInstance = calendarUtils.createCalendar('main', calendarEl, {
     events: [],
-    editable: true,
-    eventResizableFromStart: true,
     eventClick: function (info) {
       editAppointment(info.event.id);
     },
@@ -441,10 +437,7 @@ function initializeCalendar() {
     dateClick: function (info) {
       showAddAppointmentForDate(info.dateStr);
     },
-    height: 'auto',
-  });
-
-  calendar.render();
+  }, 'main');
 }
 
 // Load calendar events
@@ -479,8 +472,11 @@ function loadCalendarEvents() {
         }
       });
 
-      calendar.removeAllEvents();
-      calendar.addEventSource(events);
+      const calendarInstance = calendarUtils.getCalendar('main');
+      if (calendarInstance) {
+        calendarInstance.removeAllEvents();
+        calendarInstance.addEventSource(events);
+      }
     },
     (error) => {
       Logger.log('Error loading calendar events:', error);
