@@ -359,8 +359,8 @@ async function loadParticipants(serviceId, date, time) {
     if (!participantsList) return;
 
     if (participantsSnapshot.empty) {
-      participantsList.innerHTML =
-        '<p style="color: #666;">No hay participantes inscritos</p>';
+      SafeHTML.setInnerHTML(participantsList,
+        '<p style="color: #666;">No hay participantes inscritos</p>');
       return;
     }
 
@@ -381,11 +381,11 @@ async function loadParticipants(serviceId, date, time) {
     });
     html += '</ul>';
 
-    participantsList.innerHTML = html;
+    SafeHTML.setInnerHTML(participantsList, html);
   } catch (error) {
     Logger.error('Error loading participants:', error);
-    document.getElementById('participantsList').innerHTML =
-      '<p style="color: red;">Error al cargar participantes</p>';
+    SafeHTML.setInnerHTML(document.getElementById('participantsList'),
+      '<p style="color: red;">Error al cargar participantes</p>');
   }
 }
 
@@ -584,7 +584,7 @@ async function loadStaffOptions(serviceId) {
       options += `<option value="${doc.id}">${staff.name}</option>`;
     });
 
-    select.innerHTML = options;
+    SafeHTML.setInnerHTML(select, options);
   } catch (error) {
     Logger.error('Error loading staff options:', error);
   }
@@ -656,12 +656,12 @@ async function showServiceCalendar(serviceId) {
       await initializeServiceCalendar(serviceId, 'serviceCalendarContainer');
     } catch (error) {
       Logger.error('Error initializing calendar:', error);
-      document.getElementById('serviceCalendarContainer').innerHTML = `
+      SafeHTML.setInnerHTML(document.getElementById('serviceCalendarContainer'), `
         <div style="padding: 50px; text-align: center; color: #DC2626;">
           <p>Error al cargar el calendario</p>
           <p style="font-size: 14px; color: #666;">${error.message}</p>
         </div>
-      `;
+      `);
     }
   }, 200);
 }
@@ -1042,7 +1042,7 @@ function addAvailabilityPanel(calendarEl, serviceId) {
   const panel = document.createElement('div');
   panel.style.cssText =
     'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
-  panel.innerHTML = `
+  SafeHTML.setInnerHTML(panel, `
     <h3 style="margin-top: 0; color: #1e3a3f;">📊 Disponibilidad</h3>
     
     <!-- Legend -->
@@ -1085,7 +1085,7 @@ function addAvailabilityPanel(calendarEl, serviceId) {
       <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>
       <div style="font-size: 13px;">Cargando...</div>
     </div>
-  `;
+  `);
 
   // Create calendar container
   const calendarContainer = document.createElement('div');
@@ -1094,7 +1094,7 @@ function addAvailabilityPanel(calendarEl, serviceId) {
     'background: white; padding: 20px; border-radius: 8px;';
 
   // Replace original element
-  calendarEl.innerHTML = '';
+  SafeHTML.setInnerHTML(calendarEl, '');
   wrapper.appendChild(panel);
   wrapper.appendChild(calendarContainer);
   calendarEl.appendChild(wrapper);
@@ -1122,7 +1122,7 @@ async function updateAvailabilityPanel(serviceId) {
     const statsEl = document.getElementById(`quickStats_${serviceId}`);
     if (statsEl) {
       const weekStats = await getWeekStats(serviceId);
-      statsEl.innerHTML = `
+      SafeHTML.setInnerHTML(statsEl, `
         <h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Estadísticas Rápidas</h4>
         <div style="font-size: 13px; display: flex; flex-direction: column; gap: 5px;">
           <div><strong>Clases esta semana:</strong> ${weekStats.totalClasses}</div>
@@ -1130,7 +1130,7 @@ async function updateAvailabilityPanel(serviceId) {
           <div><strong>Ocupación promedio:</strong> ${weekStats.avgOccupancy}%</div>
           <div><strong>Ingresos estimados:</strong> $${weekStats.estimatedRevenue}</div>
         </div>
-      `;
+      `);
     }
 
     // Update today's availability
@@ -1170,7 +1170,7 @@ async function updateAvailabilityPanel(serviceId) {
         slotsHtml += '</div>';
       }
 
-      todayEl.innerHTML = slotsHtml;
+      SafeHTML.setInnerHTML(todayEl, slotsHtml);
     }
   } catch (error) {
     Logger.error('Error updating availability panel:', error);

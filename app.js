@@ -181,11 +181,11 @@ async function loadDashboardData() {
 
     // Load today's appointments table
     const tbody = document.querySelector('#todayAppointmentsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     if (appointmentsSnapshot.empty) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align: center;">No hay citas para hoy</td></tr>';
+      SafeHTML.setInnerHTML(tbody,
+        '<tr><td colspan="5" style="text-align: center;">No hay citas para hoy</td></tr>');
     } else {
       appointmentsSnapshot.forEach((doc) => {
         const appointment = doc.data();
@@ -206,7 +206,7 @@ async function loadDashboardData() {
                         <td><span class="badge ${status}">${status}</span></td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
 
@@ -226,7 +226,7 @@ async function loadServiceAvailabilitySummary() {
     const container = document.getElementById('serviceAvailabilityGrid');
     if (!container || !window.serviceCapacity) return;
 
-    container.innerHTML = '';
+    SafeHTML.setInnerHTML(container, '');
     const today = new Date();
 
     // Load availability for each service with capacity management
@@ -274,7 +274,7 @@ async function loadServiceAvailabilitySummary() {
                     </div>
                 `;
 
-        container.innerHTML += card;
+        SafeHTML.appendHTML(container, card);
       } catch (error) {
         Logger.log(`Error loading availability for ${serviceId}:`, error);
       }
@@ -511,7 +511,7 @@ async function loadAppointments() {
       .get();
 
     const tbody = document.querySelector('#appointmentsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     // Add search box and date filter if not exists
     const tableView = document.getElementById('tableView');
@@ -538,7 +538,7 @@ async function loadAppointments() {
     }
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="7" style="text-align: center;">No hay citas registradas</td></tr>';
     } else {
       snapshot.forEach((doc) => {
@@ -572,7 +572,7 @@ async function loadAppointments() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -586,7 +586,7 @@ async function loadStaff() {
     const snapshot = await db.collection('staff').get();
 
     const tbody = document.querySelector('#staffTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     // Add search box if not exists
     const staffSection = document.getElementById('staff');
@@ -598,7 +598,7 @@ async function loadStaff() {
     }
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="7" style="text-align: center;">No hay personal registrado</td></tr>';
     } else {
       snapshot.forEach((doc) => {
@@ -620,7 +620,7 @@ async function loadStaff() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -638,7 +638,7 @@ async function loadPatients() {
       .get();
 
     const tbody = document.querySelector('#patientsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     // Add search box if not exists
     const patientsSection = document.getElementById('patients');
@@ -653,7 +653,7 @@ async function loadPatients() {
     }
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="8" style="text-align: center;">No hay pacientes registrados</td></tr>';
     } else {
       // First, let's get appointment counts for each patient
@@ -712,7 +712,7 @@ async function loadPatients() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -731,7 +731,7 @@ async function loadServices() {
     const snapshot = await db.collection('services').get();
 
     const tbody = document.querySelector('#servicesTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     // Add search box if not exists
     const servicesSection = document.getElementById('services');
@@ -746,7 +746,7 @@ async function loadServices() {
     }
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="6" style="text-align: center;">No hay servicios registrados</td></tr>';
       // Add some default services
       addDefaultServices();
@@ -810,7 +810,7 @@ async function loadServices() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -900,7 +900,7 @@ async function addDefaultServices() {
 // Modal functions
 function showModal(title, content) {
   document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalBody').innerHTML = content;
+  SafeHTML.setInnerHTML(document.getElementById('modalBody'), content);
   document.getElementById('modal').classList.add('active');
 }
 
@@ -943,7 +943,7 @@ async function showServiceCalendar(serviceId, serviceName) {
     const service = serviceDoc.data();
 
     // Create calendar content
-    modalBody.innerHTML = `
+    SafeHTML.setInnerHTML(modalBody, `
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
@@ -1631,7 +1631,7 @@ async function updateAvailableSlots(serviceId) {
     window.serviceCapacity.SERVICE_CAPACITY[serviceId]
   ) {
     try {
-      timeSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+      SafeHTML.setInnerHTML(timeSelect, '<option value="">Cargando horarios...</option>');
 
       const availability = await window.serviceCapacity.getServiceAvailability(
         serviceId,
@@ -1664,7 +1664,7 @@ async function updateAvailableSlots(serviceId) {
         }
       }
 
-      timeSelect.innerHTML = options;
+      SafeHTML.setInnerHTML(timeSelect, options);
 
       if (!hasAvailableSlots) {
         document.getElementById('capacityWarning').style.display = 'block';
@@ -1675,11 +1675,11 @@ async function updateAvailableSlots(serviceId) {
       }
     } catch (error) {
       Logger.log('Error loading available slots:', error);
-      timeSelect.innerHTML = generateTimeOptions();
+      SafeHTML.setInnerHTML(timeSelect, generateTimeOptions());
     }
   } else {
     // Service without capacity management - show all time slots
-    timeSelect.innerHTML = generateTimeOptions();
+    SafeHTML.setInnerHTML(timeSelect, generateTimeOptions());
   }
 }
 
@@ -1775,10 +1775,10 @@ async function loadPayments() {
     let pendingCount = 0;
 
     const tbody = document.querySelector('#paymentsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="7" style="text-align: center;">No hay pagos registrados</td></tr>';
       // Create sample payments
       await createSamplePayments();
@@ -1819,7 +1819,7 @@ async function loadPayments() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
 
@@ -2012,7 +2012,7 @@ async function generateReport(type) {
   const content = document.getElementById('reportContent');
 
   preview.style.display = 'block';
-  content.innerHTML = '<p class="loading">Generando reporte...</p>';
+  SafeHTML.setInnerHTML(content, '<p class="loading">Generando reporte...</p>');
 
   try {
     switch (type) {
@@ -2030,7 +2030,7 @@ async function generateReport(type) {
         break;
     }
   } catch (error) {
-    content.innerHTML =
+    SafeHTML.setInnerHTML(content,
       '<p style="color: red;">Error al generar reporte: ' +
       error.message +
       '</p>';
@@ -2079,7 +2079,7 @@ async function generateAppointmentsReport(container) {
     rows: tableRows,
   };
 
-  container.innerHTML = `
+  SafeHTML.setInnerHTML(container, `
         <h4>Resumen de Citas - Últimos 30 días</h4>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0;">
             <div style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
@@ -2157,7 +2157,7 @@ async function generateIncomeReport(container) {
     byService: byService,
   };
 
-  container.innerHTML = `
+  SafeHTML.setInnerHTML(container, `
         <h4>Reporte de Ingresos - Último Mes</h4>
         <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h2 style="margin: 0; color: #155724;">Total: $${totalIncome.toFixed(2)}</h2>
@@ -2299,10 +2299,10 @@ async function loadNotifications() {
       .get();
 
     const tbody = document.querySelector('#notificationsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="5" style="text-align: center;">No hay notificaciones registradas</td></tr>';
     } else {
       snapshot.forEach((doc) => {
@@ -2320,7 +2320,7 @@ async function loadNotifications() {
                         <td><span class="badge ${notification.status}">${notification.status || 'enviado'}</span></td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -2793,7 +2793,7 @@ function updateSOPCharts(metrics) {
 
 function updateResourcePlanning(metrics) {
   const tbody = document.querySelector('#resourcePlanningTable tbody');
-  tbody.innerHTML = '';
+  SafeHTML.setInnerHTML(tbody, '');
 
   // Sample resource data
   const resources = [
@@ -2838,7 +2838,7 @@ function updateResourcePlanning(metrics) {
                 <td>${resource.projection} (${resource.projection > resource.total ? '⚠️ Sobre capacidad' : '✅ OK'})</td>
             </tr>
         `;
-    tbody.innerHTML += row;
+    SafeHTML.appendHTML(tbody, row);
   });
 }
 
@@ -2880,7 +2880,7 @@ function generateSOPAlerts(metrics) {
     );
   }
 
-  alertsDiv.innerHTML = alerts
+  SafeHTML.setInnerHTML(alertsDiv, alerts
     .map((alert) => `<p style="margin: 5px 0;">${alert}</p>`)
     .join('');
 }
@@ -2916,7 +2916,7 @@ function generateActionPlan() {
     },
   ];
 
-  resultsDiv.innerHTML = `
+  SafeHTML.setInnerHTML(resultsDiv, `
         <h4>Plan de Acción para ${growthTarget}% de Crecimiento:</h4>
         <table style="width: 100%; margin-top: 10px;">
             <thead>
@@ -3003,14 +3003,14 @@ async function loadInventory() {
     const snapshot = await db.collection('products').get();
 
     const tbody = document.querySelector('#inventoryTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     let totalProducts = 0;
     let totalValue = 0;
     let lowStockCount = 0;
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="9" style="text-align: center;">No hay productos registrados</td></tr>';
       // Add sample products
       await addSampleProducts();
@@ -3077,7 +3077,7 @@ async function loadInventory() {
                         </td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
 
@@ -3108,10 +3108,10 @@ async function loadMovements() {
       .get();
 
     const tbody = document.querySelector('#movementsTable tbody');
-    tbody.innerHTML = '';
+    SafeHTML.setInnerHTML(tbody, '');
 
     if (snapshot.empty) {
-      tbody.innerHTML =
+      SafeHTML.setInnerHTML(tbody,
         '<tr><td colspan="6" style="text-align: center;">No hay movimientos registrados</td></tr>';
     } else {
       let lastMovement = null;
@@ -3144,7 +3144,7 @@ async function loadMovements() {
                         <td>${movement.notes || '-'}</td>
                     </tr>
                 `;
-        tbody.innerHTML += row;
+        SafeHTML.appendHTML(tbody, row);
       });
     }
   } catch (error) {
@@ -3713,11 +3713,11 @@ async function analyzeBillingRecommendation() {
     ) {
       const existingAnalysis = document.getElementById('billingAnalysis');
       if (existingAnalysis) {
-        existingAnalysis.innerHTML = analysisHTML;
+        SafeHTML.setInnerHTML(existingAnalysis, analysisHTML);
       } else {
         const analysisDiv = document.createElement('div');
         analysisDiv.id = 'billingAnalysis';
-        analysisDiv.innerHTML = analysisHTML;
+        SafeHTML.setInnerHTML(analysisDiv, analysisHTML);
         integrationsSection.insertBefore(
           analysisDiv,
           integrationsSection.children[1]
@@ -3745,14 +3745,14 @@ function checkIntegrationStatus() {
   // Check Siigo status
   const siigoConfig = localStorage.getItem('siigoConfig');
   if (siigoConfig) {
-    document.getElementById('siigoStatus').innerHTML =
+    SafeHTML.setInnerHTML(document.getElementById('siigoStatus'),
       '<span class="badge" style="background: #d4edda; color: #155724;">Conectado</span>';
   }
 
   // Check SaludTools status
   const saludtoolsConfig = localStorage.getItem('saludtoolsConfig');
   if (saludtoolsConfig) {
-    document.getElementById('saludtoolsStatus').innerHTML =
+    SafeHTML.setInnerHTML(document.getElementById('saludtoolsStatus'),
       '<span class="badge" style="background: #d4edda; color: #155724;">Conectado</span>';
   }
 }
@@ -3947,7 +3947,7 @@ function configureWhatsApp() {
         checkIntegrationStatus();
 
         // Update status
-        document.getElementById('whatsappStatus').innerHTML =
+        SafeHTML.setInnerHTML(document.getElementById('whatsappStatus'),
           '<span class="badge" style="background: #d4edda; color: #155724;">Conectado y Automatizado</span>';
 
         alert(
@@ -3968,7 +3968,7 @@ function updateBillingFields(provider) {
   const fieldsDiv = document.getElementById('billingProviderFields');
 
   if (provider === 'siigo') {
-    fieldsDiv.innerHTML = `
+    SafeHTML.setInnerHTML(fieldsDiv, `
             <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <strong>💰 Costo:</strong> $80.000 - $150.000/mes<br>
                 <strong>✅ Incluye:</strong> Contabilidad, nómina, reportes automáticos<br>
@@ -3991,7 +3991,7 @@ function updateBillingFields(provider) {
             </div>
         `;
   } else if (provider === 'cadena') {
-    fieldsDiv.innerHTML = `
+    SafeHTML.setInnerHTML(fieldsDiv, `
             <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <strong>💰 Costo:</strong> GRATIS (primeras 50/mes), luego $15.000<br>
                 <strong>✅ Incluye:</strong> Facturación electrónica básica<br>
@@ -4011,7 +4011,7 @@ function updateBillingFields(provider) {
             </div>
         `;
   } else if (provider === 'factureco') {
-    fieldsDiv.innerHTML = `
+    SafeHTML.setInnerHTML(fieldsDiv, `
             <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <strong>💰 Costo:</strong> $25.000 - $40.000/mes<br>
                 <strong>✅ Incluye:</strong> Facturación + Reportes básicos<br>
@@ -4033,7 +4033,7 @@ function updateWhatsAppFields(provider) {
   const fieldsDiv = document.getElementById('whatsappFields');
 
   if (provider === 'twilio') {
-    fieldsDiv.innerHTML = `
+    SafeHTML.setInnerHTML(fieldsDiv, `
             <div style="background: #e0f2fe; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <strong>💳 Costo Twilio:</strong> $0.0055 USD por mensaje (aprox $22 COP)<br>
                 <strong>🌐 Más confiable:</strong> Funciona en todo el mundo<br>
@@ -4065,7 +4065,7 @@ function updateWhatsAppFields(provider) {
             </div>
         `;
   } else if (provider) {
-    fieldsDiv.innerHTML = `
+    SafeHTML.setInnerHTML(fieldsDiv, `
             <div class="form-group">
                 <label>API Key</label>
                 <input type="text" name="apiKey" required>
@@ -4357,7 +4357,7 @@ function renderWhatsAppPatientsList() {
   const list = document.getElementById('patientsList');
   if (!list) return;
 
-  list.innerHTML = whatsappPatients
+  SafeHTML.setInnerHTML(list, whatsappPatients
     .map(
       (patient) => `
         <div style="display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0;">
@@ -4604,7 +4604,7 @@ function addWhatsAppLog(number, status, type) {
     type === 'success' ? '#D1FAE5' : type === 'error' ? '#FEE2E2' : 'white'
   };`;
 
-  logItem.innerHTML = `
+  SafeHTML.setInnerHTML(logItem, `
         <div>
             <strong>${number}</strong>
             <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
