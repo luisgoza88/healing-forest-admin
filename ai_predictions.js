@@ -487,6 +487,25 @@ class AIHealthAnalytics {
     return 'normal';
   }
 
+  async getHolidayFactor(days = 30) {
+    const today = new Date();
+    const endDate = new Date();
+    endDate.setDate(today.getDate() + days);
+
+    const holidays = ColombianHolidays.getHolidaysRange(
+      today.getFullYear(),
+      endDate.getFullYear()
+    ).map((d) => new Date(d));
+
+    const upcoming = holidays.filter((d) => d >= today && d <= endDate).length;
+
+    return 1 - upcoming / days;
+  }
+
+  async isHoliday(date) {
+    return ColombianHolidays.isHoliday(date);
+  }
+
   generateDemandInsights(predictions, patterns) {
     const insights = [];
 

@@ -14,6 +14,11 @@ const FLATPICKR_CONFIG = {
   monthSelectorType: 'dropdown',
 };
 
+function getUpcomingColombianHolidays() {
+  const year = new Date().getFullYear();
+  return ColombianHolidays.getHolidaysRange(year, year + 1);
+}
+
 // Initialize Flatpickr for all date inputs
 function initializeFlatpickr() {
   // Set Spanish locale
@@ -61,7 +66,7 @@ function enhanceDateInputs() {
           return date.getDay() === 0;
         },
         // Disable Colombian holidays
-        ...getColombianHolidays(),
+        ...getUpcomingColombianHolidays(),
       ],
       onReady: function (selectedDates, dateStr, instance) {
         // Add quick select buttons
@@ -186,7 +191,7 @@ function addQuickSelectButtons(instance) {
 
 // Add holiday indicator to calendar
 function addHolidayIndicator(instance) {
-  const holidays = getColombianHolidays();
+  const holidays = getUpcomingColombianHolidays();
 
   instance.config.onDayCreate = function (dObj, dStr, fp, dayElem) {
     const dateStr = moment(dayElem.dateObj).format('YYYY-MM-DD');
@@ -788,38 +793,9 @@ function getServiceColor(serviceType) {
   return colors[serviceType] || '#16A34A';
 }
 
-// Get Colombian holidays for current and next year
-function getColombianHolidays() {
-  const currentYear = new Date().getFullYear();
-  const holidays = [];
-
-  // Holidays for current year and next year
-  [currentYear, currentYear + 1].forEach((year) => {
-    holidays.push(
-      `${year}-01-01`, // Año Nuevo
-      `${year}-01-08`, // Reyes Magos (aproximado)
-      `${year}-03-25`, // San José (aproximado)
-      `${year}-05-01`, // Día del Trabajo
-      `${year}-06-03`, // Corpus Christi (aproximado)
-      `${year}-06-10`, // Sagrado Corazón (aproximado)
-      `${year}-07-01`, // San Pedro y San Pablo (aproximado)
-      `${year}-07-20`, // Independencia
-      `${year}-08-07`, // Batalla de Boyacá
-      `${year}-08-19`, // Asunción (aproximado)
-      `${year}-10-14`, // Día de la Raza (aproximado)
-      `${year}-11-04`, // Todos los Santos (aproximado)
-      `${year}-11-11`, // Independencia de Cartagena (aproximado)
-      `${year}-12-25` // Navidad
-    );
-  });
-
-  return holidays;
-}
-
 // Check if date is holiday
 function isHoliday(date) {
-  const dateStr = moment(date).format('YYYY-MM-DD');
-  return getColombianHolidays().includes(dateStr);
+  return ColombianHolidays.isHoliday(date);
 }
 
 // Calendar enhancement helper functions
