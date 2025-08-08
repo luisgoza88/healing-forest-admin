@@ -1,58 +1,59 @@
 // Configuration loader for Healing Forest Admin
-// This file handles loading configuration from environment or defaults
+// Loads required credentials from environment variables at runtime
 
-// In production, these should come from environment variables
-// For now, we'll use a config object that can be easily modified
+(function () {
+  function getEnvVar(name) {
+    const value =
+      (typeof process !== 'undefined' && process.env && process.env[name]) ||
+      (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__[name]);
+    if (!value) {
+      throw new Error(`Missing required environment variable: ${name}`);
+    }
+    return value;
+  }
 
-const Config = {
-  // Firebase Configuration
-  firebase: {
-    apiKey: 'AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM',
-    authDomain: 'healling-forest.firebaseapp.com',
-    projectId: 'healling-forest',
-    storageBucket: 'healling-forest.firebasestorage.app',
-    messagingSenderId: '657330224656',
-    appId: '1:657330224656:web:admin',
-  },
+  const Config = {
+    // Firebase Configuration
+    firebase: {
+      apiKey: getEnvVar('FIREBASE_API_KEY'),
+      authDomain: getEnvVar('FIREBASE_AUTH_DOMAIN'),
+      projectId: getEnvVar('FIREBASE_PROJECT_ID'),
+      storageBucket: getEnvVar('FIREBASE_STORAGE_BUCKET'),
+      messagingSenderId: getEnvVar('FIREBASE_MESSAGING_SENDER_ID'),
+      appId: getEnvVar('FIREBASE_APP_ID'),
+    },
 
-  // Twilio Configuration (for WhatsApp)
-  twilio: {
-    accountSid: '',
-    authToken: '',
-    whatsappNumber: '+14155238886',
-  },
+    // Twilio Configuration (for WhatsApp)
+    twilio: {
+      accountSid: getEnvVar('TWILIO_ACCOUNT_SID'),
+      authToken: getEnvVar('TWILIO_AUTH_TOKEN'),
+      whatsappNumber: getEnvVar('TWILIO_WHATSAPP_NUMBER'),
+    },
 
-  // EmailJS Configuration
-  emailjs: {
-    serviceId: 'YOUR_SERVICE_ID',
-    templateId: 'YOUR_TEMPLATE_ID',
-    publicKey: 'YOUR_PUBLIC_KEY',
-  },
+    // EmailJS Configuration
+    emailjs: {
+      serviceId: getEnvVar('EMAILJS_SERVICE_ID'),
+      templateId: getEnvVar('EMAILJS_TEMPLATE_ID'),
+      publicKey: getEnvVar('EMAILJS_PUBLIC_KEY'),
+    },
 
-  // Siigo Configuration
-  siigo: {
-    apiKey: '',
-    companyId: '',
-  },
+    // Siigo Configuration
+    siigo: {
+      apiKey: getEnvVar('SIIGO_API_KEY'),
+      companyId: getEnvVar('SIIGO_COMPANY_ID'),
+    },
 
-  // Application Settings
-  app: {
-    name: 'Healing Forest Admin',
-    version: '1.0.0',
-    environment:
-      window.location.hostname === 'localhost' ? 'development' : 'production',
-  },
-};
+    // Application Settings
+    app: {
+      name: 'Healing Forest Admin',
+      version: '1.0.0',
+      environment:
+        typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost'
+          ? 'development'
+          : 'production',
+    },
+  };
 
-// WARNING: Firebase config is currently hardcoded for development
-// In production, these should be loaded from secure environment variables
-// Never commit real credentials to version control
-
-if (Config.app.environment === 'production') {
-  console.warn(
-    '⚠️ Running in production with hardcoded credentials. Please configure environment variables.'
-  );
-}
-
-// Export configuration
-window.AppConfig = Config;
+  window.AppConfig = Config;
+})();
