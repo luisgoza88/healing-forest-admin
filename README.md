@@ -5,6 +5,7 @@ Panel administrativo para gestionar citas, pagos y servicios de Healing Forest.
 ## 🚀 Deploy Automático
 
 Este proyecto se actualiza automáticamente en:
+
 - **URL**: https://healing-forest-admin.netlify.app
 
 Cada vez que se hace un cambio en GitHub, se actualiza automáticamente en la web.
@@ -31,3 +32,10 @@ Cada vez que se hace un cambio en GitHub, se actualiza automáticamente en la we
 - Chart.js para gráficas
 - FullCalendar para calendario
 - jsPDF para reportes
+
+## 🔁 Recurrencia de eventos
+
+Al crear una nueva clase desde el calendario se puede elegir una opción de **Repetir** (diario, semanal o mensual) y definir una fecha de finalización.
+El sistema generará todos los eventos correspondientes en Firestore mediante una operación en lote, agrupados bajo un mismo `seriesId`.
+
+En el modal de detalles de cualquier evento de la serie aparecerán los botones **Editar serie** y **Cancelar serie**, que permiten actualizar o eliminar todas las ocurrencias de la serie con un solo clic.
