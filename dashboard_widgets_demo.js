@@ -147,16 +147,20 @@ function enhanceFormSubmissions() {
                     </div>
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px;">Fecha</label>
-                        <input type="date" id="appointmentDate" class="swal2-input" min="${new Date().toISOString().split('T')[0]}">
+                        <input type="date" id="appointmentDate" class="swal2-input" min="${new Date().toISOString().split('T')[0]}" data-min-date="${new Date().toISOString().split('T')[0]}" data-date-format="Y-m-d">
                     </div>
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px;">Hora</label>
-                        <input type="time" id="appointmentTime" class="swal2-input">
+                        <input type="time" id="appointmentTime" class="swal2-input" data-min-time="06:00" data-max-time="21:00">
                     </div>
                 </div>
             `;
 
-      const result = await widgets.showFormModal('Nueva Cita', formHtml);
+      const modalPromise = widgets.showFormModal('Nueva Cita', formHtml);
+      if (typeof initializeFlatpickr === 'function') {
+        initializeFlatpickr();
+      }
+      const result = await modalPromise;
 
       if (result) {
         // Process the form

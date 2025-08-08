@@ -22,7 +22,7 @@ async function initializeServiceCalendar(serviceId, containerId) {
           duration: serviceData.duration || 60,
           type: serviceData.isGroupService ? 'group' : 'individual',
           minTimeBetween: 15,
-          price: serviceData.price || 0
+          price: serviceData.price || 0,
         };
         // Store in SERVICE_CAPACITY for future use
         window.serviceCapacity.SERVICE_CAPACITY[serviceId] = serviceConfig;
@@ -39,10 +39,10 @@ async function initializeServiceCalendar(serviceId, containerId) {
 
   // For now, skip the availability panel to test if calendar loads
   console.log('Creating calendar for element:', calendarEl);
-  
+
   // Temporarily comment out the panel
   // const calendarContainer = addAvailabilityPanel(calendarEl, serviceId);
-  
+
   try {
     const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'dayGridMonth',
@@ -60,103 +60,103 @@ async function initializeServiceCalendar(serviceId, containerId) {
       slotLabelInterval: '01:00:00',
       expandRows: true,
 
-    // Enable drag and drop
-    editable: true,
-    droppable: true,
-    eventDurationEditable: false,
+      // Enable drag and drop
+      editable: true,
+      droppable: true,
+      eventDurationEditable: false,
 
-    // Custom event rendering
-    eventDidMount: function (info) {
-      const event = info.event;
-      const el = info.el;
+      // Custom event rendering
+      eventDidMount: function (info) {
+        const event = info.event;
+        const el = info.el;
 
-      // Add capacity info
-      const capacity = event.extendedProps.capacity || serviceConfig.capacity;
-      const booked = event.extendedProps.booked || 0;
-      const available = capacity - booked;
+        // Add capacity info
+        const capacity = event.extendedProps.capacity || serviceConfig.capacity;
+        const booked = event.extendedProps.booked || 0;
+        const available = capacity - booked;
 
-      // Color coding based on availability
-      if (available === 0) {
-        el.style.backgroundColor = '#DC2626'; // Red - full
-        el.style.borderColor = '#991B1B';
-      } else if (available <= capacity * 0.25) {
-        el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
-        el.style.borderColor = '#D97706';
-      } else {
-        el.style.backgroundColor = '#16A34A'; // Green - available
-        el.style.borderColor = '#15803D';
-      }
+        // Color coding based on availability
+        if (available === 0) {
+          el.style.backgroundColor = '#DC2626'; // Red - full
+          el.style.borderColor = '#991B1B';
+        } else if (available <= capacity * 0.25) {
+          el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
+          el.style.borderColor = '#D97706';
+        } else {
+          el.style.backgroundColor = '#16A34A'; // Green - available
+          el.style.borderColor = '#15803D';
+        }
 
-      // Add tooltip
-      el.setAttribute(
-        'title',
-        `${serviceConfig.name}\nCapacidad: ${booked}/${capacity}\nDisponible: ${available}`
-      );
-    },
+        // Add tooltip
+        el.setAttribute(
+          'title',
+          `${serviceConfig.name}\nCapacidad: ${booked}/${capacity}\nDisponible: ${available}`
+        );
+      },
 
-    // Event click handler
-    eventClick: function (info) {
-      showServiceEventDetails(info.event);
-    },
+      // Event click handler
+      eventClick: function (info) {
+        showServiceEventDetails(info.event);
+      },
 
-    // Date click handler (for creating new events)
-    dateClick: function (info) {
-      if (
-        info.view.type === 'timeGridWeek' ||
-        info.view.type === 'timeGridDay'
-      ) {
-        showCreateServiceEvent(serviceId, info.date);
-      }
-    },
+      // Date click handler (for creating new events)
+      dateClick: function (info) {
+        if (
+          info.view.type === 'timeGridWeek' ||
+          info.view.type === 'timeGridDay'
+        ) {
+          showCreateServiceEvent(serviceId, info.date);
+        }
+      },
 
-    // Drag start
-    eventDragStart: function (info) {
-      draggedEvent = info.event;
-    },
+      // Drag start
+      eventDragStart: function (info) {
+        draggedEvent = info.event;
+      },
 
-    // Drop handler
-    eventDrop: async function (info) {
-      const confirmed = confirm(
-        `¿Mover ${info.event.title} a ${info.event.start.toLocaleString('es')}?`
-      );
+      // Drop handler
+      eventDrop: async function (info) {
+        const confirmed = confirm(
+          `¿Mover ${info.event.title} a ${info.event.start.toLocaleString('es')}?`
+        );
 
-      if (!confirmed) {
-        info.revert();
-        return;
-      }
+        if (!confirmed) {
+          info.revert();
+          return;
+        }
 
-      try {
-        await updateServiceEvent(info.event);
-      } catch (error) {
-        Logger.error('Error updating event:', error);
-        info.revert();
-        alert('Error al actualizar el evento');
-      }
-    },
+        try {
+          await updateServiceEvent(info.event);
+        } catch (error) {
+          Logger.error('Error updating event:', error);
+          info.revert();
+          alert('Error al actualizar el evento');
+        }
+      },
 
-    // External event drop
-    drop: async function (info) {
-      if (draggedEvent) {
-        const newDate = info.date;
-        await createServiceEventFromDrop(serviceId, draggedEvent, newDate);
-        draggedEvent = null;
-      }
-    },
+      // External event drop
+      drop: async function (info) {
+        if (draggedEvent) {
+          const newDate = info.date;
+          await createServiceEventFromDrop(serviceId, draggedEvent, newDate);
+          draggedEvent = null;
+        }
+      },
 
-    // Simple test events
-    events: [
-      {
-        title: 'Test Event',
-        start: new Date(),
-        backgroundColor: '#16A34A'
-      }
-    ]
-  });
+      // Simple test events
+      events: [
+        {
+          title: 'Test Event',
+          start: new Date(),
+          backgroundColor: '#16A34A',
+        },
+      ],
+    });
 
     calendar.render();
     serviceCalendars[serviceId] = calendar;
     currentServiceId = serviceId;
-    
+
     console.log('Calendar rendered successfully');
     return calendar;
   } catch (error) {
@@ -414,11 +414,11 @@ function showCreateServiceEvent(serviceId, date) {
         <form id="createServiceEventForm">
             <div class="form-group">
                 <label>Fecha</label>
-                <input type="date" name="date" value="${date.toISOString().split('T')[0]}" required>
+                <input type="date" name="date" value="${date.toISOString().split('T')[0]}" data-min-date="${date.toISOString().split('T')[0]}" data-date-format="Y-m-d" required>
             </div>
             <div class="form-group">
                 <label>Hora</label>
-                <input type="time" name="time" value="${date.toTimeString().slice(0, 5)}" required>
+                <input type="time" name="time" value="${date.toTimeString().slice(0, 5)}" data-min-time="06:00" data-max-time="21:00" required>
             </div>
             <div class="form-group">
                 <label>Capacidad</label>
@@ -443,7 +443,7 @@ function showCreateServiceEvent(serviceId, date) {
             <div id="repeatOptions" style="display: none;">
                 <div class="form-group">
                     <label>Repetir hasta</label>
-                    <input type="date" name="repeatUntil">
+                    <input type="date" name="repeatUntil" data-date-format="Y-m-d" data-min-date="${date.toISOString().split('T')[0]}">
                 </div>
             </div>
             <button type="submit" class="btn">Crear Evento</button>
@@ -451,6 +451,9 @@ function showCreateServiceEvent(serviceId, date) {
     `;
 
   showModal(`Nueva Clase de ${serviceConfig.name}`, content);
+  if (typeof initializeFlatpickr === 'function') {
+    initializeFlatpickr();
+  }
 
   // Load staff options
   loadStaffOptions(serviceId);
@@ -611,7 +614,7 @@ async function loadStaffOptions(serviceId) {
 async function showServiceCalendar(serviceId) {
   // Try to get service config from predefined services
   let serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-  
+
   // If not found, get from Firestore
   if (!serviceConfig) {
     try {
@@ -623,7 +626,7 @@ async function showServiceCalendar(serviceId) {
           capacity: serviceData.maxParticipants || serviceData.capacity || 1,
           duration: serviceData.duration || 60,
           type: serviceData.isGroupService ? 'group' : 'individual',
-          price: serviceData.price || 0
+          price: serviceData.price || 0,
         };
       } else {
         alert('Servicio no encontrado');
@@ -715,8 +718,8 @@ function showServiceSettings(serviceId) {
     hoursHtml += `
             <div style="display: grid; grid-template-columns: 100px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <label>${dayNames[index]}</label>
-                <input type="time" id="${day}_open" value="${dayHours.open}" placeholder="Apertura">
-                <input type="time" id="${day}_close" value="${dayHours.close}" placeholder="Cierre">
+                <input type="time" id="${day}_open" value="${dayHours.open}" placeholder="Apertura" data-min-time="06:00" data-max-time="21:00">
+                <input type="time" id="${day}_close" value="${dayHours.close}" placeholder="Cierre" data-min-time="06:00" data-max-time="21:00">
             </div>
         `;
   });
@@ -1044,19 +1047,21 @@ async function cancelServiceSlot(serviceId, date, time) {
 // Add availability panel to calendar view
 function addAvailabilityPanel(calendarEl, serviceId) {
   const serviceConfig = window.serviceCapacity.SERVICE_CAPACITY[serviceId];
-  
+
   if (!serviceConfig) {
     Logger.error('Service config not found for:', serviceId);
     return calendarEl; // Return original element if no config
   }
-  
+
   // Create wrapper for calendar and panel
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%;';
-  
+  wrapper.style.cssText =
+    'display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%;';
+
   // Create availability panel
   const panel = document.createElement('div');
-  panel.style.cssText = 'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
+  panel.style.cssText =
+    'background: #f8f9fa; padding: 20px; border-radius: 8px; overflow-y: auto;';
   panel.innerHTML = `
     <h3 style="margin-top: 0; color: #1e3a3f;">📊 Disponibilidad</h3>
     
@@ -1101,24 +1106,25 @@ function addAvailabilityPanel(calendarEl, serviceId) {
       <div style="font-size: 13px;">Cargando...</div>
     </div>
   `;
-  
+
   // Create calendar container
   const calendarContainer = document.createElement('div');
   calendarContainer.id = calendarEl.id + '_calendar';
-  calendarContainer.style.cssText = 'background: white; padding: 20px; border-radius: 8px;';
-  
+  calendarContainer.style.cssText =
+    'background: white; padding: 20px; border-radius: 8px;';
+
   // Replace original element
   calendarEl.innerHTML = '';
   wrapper.appendChild(panel);
   wrapper.appendChild(calendarContainer);
   calendarEl.appendChild(wrapper);
-  
+
   // Update calendar element reference
   calendarEl = calendarContainer;
-  
+
   // Load initial stats
   updateAvailabilityPanel(serviceId);
-  
+
   return calendarContainer;
 }
 
@@ -1127,8 +1133,11 @@ async function updateAvailabilityPanel(serviceId) {
   try {
     // Get today's availability
     const today = new Date();
-    const availability = await window.serviceCapacity.getServiceAvailability(serviceId, today);
-    
+    const availability = await window.serviceCapacity.getServiceAvailability(
+      serviceId,
+      today
+    );
+
     // Update quick stats
     const statsEl = document.getElementById(`quickStats_${serviceId}`);
     if (statsEl) {
@@ -1143,22 +1152,29 @@ async function updateAvailabilityPanel(serviceId) {
         </div>
       `;
     }
-    
+
     // Update today's availability
     const todayEl = document.getElementById(`todayAvailability_${serviceId}`);
     if (todayEl && availability.slots) {
-      let slotsHtml = '<h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>';
-      
-      const availableSlots = availability.slots.filter(s => s.enabled && s.available > 0);
-      
+      let slotsHtml =
+        '<h4 style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Disponibilidad Hoy</h4>';
+
+      const availableSlots = availability.slots.filter(
+        (s) => s.enabled && s.available > 0
+      );
+
       if (availableSlots.length === 0) {
-        slotsHtml += '<p style="font-size: 13px; color: #DC2626;">No hay cupos disponibles para hoy</p>';
+        slotsHtml +=
+          '<p style="font-size: 13px; color: #DC2626;">No hay cupos disponibles para hoy</p>';
       } else {
-        slotsHtml += '<div style="display: flex; flex-direction: column; gap: 5px;">';
-        availableSlots.forEach(slot => {
-          const percentage = Math.round((slot.available / slot.totalCapacity) * 100);
+        slotsHtml +=
+          '<div style="display: flex; flex-direction: column; gap: 5px;">';
+        availableSlots.forEach((slot) => {
+          const percentage = Math.round(
+            (slot.available / slot.totalCapacity) * 100
+          );
           const color = percentage > 25 ? '#16A34A' : '#F59E0B';
-          
+
           slotsHtml += `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8f9fa; border-radius: 4px;">
               <span style="font-size: 13px;">${slot.time}</span>
@@ -1173,7 +1189,7 @@ async function updateAvailabilityPanel(serviceId) {
         });
         slotsHtml += '</div>';
       }
-      
+
       todayEl.innerHTML = slotsHtml;
     }
   } catch (error) {
@@ -1187,11 +1203,11 @@ async function getWeekStats(serviceId) {
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
-  
+
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(endOfWeek.getDate() + 6);
   endOfWeek.setHours(23, 59, 59, 999);
-  
+
   try {
     const snapshot = await db
       .collection('appointments')
@@ -1199,11 +1215,11 @@ async function getWeekStats(serviceId) {
       .where('date', '>=', firebase.firestore.Timestamp.fromDate(startOfWeek))
       .where('date', '<=', firebase.firestore.Timestamp.fromDate(endOfWeek))
       .get();
-    
+
     let totalBooked = 0;
     let classCount = {};
-    
-    snapshot.forEach(doc => {
+
+    snapshot.forEach((doc) => {
       const data = doc.data();
       const key = `${data.date.toDate().toDateString()}_${data.time}`;
       if (!classCount[key]) {
@@ -1212,18 +1228,19 @@ async function getWeekStats(serviceId) {
       classCount[key]++;
       totalBooked++;
     });
-    
+
     const totalClasses = Object.keys(classCount).length;
     const totalCapacity = totalClasses * serviceConfig.capacity;
-    const avgOccupancy = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
+    const avgOccupancy =
+      totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
     const estimatedRevenue = totalBooked * (serviceConfig.price || 50);
-    
+
     return {
       totalClasses,
       totalCapacity,
       totalBooked,
       avgOccupancy,
-      estimatedRevenue
+      estimatedRevenue,
     };
   } catch (error) {
     Logger.error('Error getting week stats:', error);
@@ -1232,7 +1249,7 @@ async function getWeekStats(serviceId) {
       totalCapacity: 0,
       totalBooked: 0,
       avgOccupancy: 0,
-      estimatedRevenue: 0
+      estimatedRevenue: 0,
     };
   }
 }

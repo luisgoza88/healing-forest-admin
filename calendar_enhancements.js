@@ -78,9 +78,25 @@ function enhanceDateInputs() {
           })
         );
 
-        // Update available slots if this is an appointment date
+        // Update availability and calendar if this is an appointment form
         if (input.closest('.appointment-form')) {
-          updateAvailableSlots(selectedDates[0]);
+          // Recalculate available slots using global handler if available
+          const serviceSelect = input
+            .closest('.appointment-form')
+            .querySelector('select[name="serviceId"]');
+          if (
+            serviceSelect &&
+            serviceSelect.value &&
+            typeof window.updateAvailableSlots === 'function'
+          ) {
+            window.updateAvailableSlots(serviceSelect.value);
+          }
+
+          // Refresh event rendering on the active calendar
+          if (window.currentCalendarInstance) {
+            window.currentCalendarInstance.refetchEvents();
+            window.currentCalendarInstance.rerenderEvents();
+          }
         }
       },
     };
@@ -107,12 +123,15 @@ function enhanceDateTimeInputs() {
     flatpickr(input, {
       ...FLATPICKR_CONFIG,
       enableTime: true,
-      dateFormat: 'Y-m-d H:i',
-      altFormat: 'j F, Y - H:i',
-      minDate: 'today',
+      dateFormat: input.dataset.dateFormat || 'Y-m-d H:i',
+      altFormat: input.dataset.altFormat || 'j F, Y - H:i',
+      minDate: input.dataset.minDate || 'today',
+      maxDate: input.dataset.maxDate || null,
       time_24hr: true,
-      minuteIncrement: 15,
+      minuteIncrement: input.dataset.increment || 15,
       defaultHour: 9,
+      minTime: input.dataset.minTime,
+      maxTime: input.dataset.maxTime,
       onReady: function (selectedDates, dateStr, instance) {
         addTimePresets(instance);
       },
