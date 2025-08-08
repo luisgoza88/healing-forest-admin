@@ -11,6 +11,7 @@ let currentUser = null;
 let calendar = null;
 let appointmentsChart = null;
 let servicesChart = null;
+let calendarEventsUnsubscribe = null;
 
 // Login functionality
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -74,6 +75,11 @@ function showSection(section) {
     sec.classList.remove('active');
   });
   document.getElementById(section).classList.add('active');
+
+  if (section !== 'appointments' && calendarEventsUnsubscribe) {
+    calendarEventsUnsubscribe();
+    calendarEventsUnsubscribe = null;
+  }
 
   // Load section data
   switch (section) {
@@ -277,82 +283,82 @@ async function loadCharts() {
       date.setDate(date.getDate() - i);
       date.setHours(0, 0, 0, 0);
 
-    const nextDate = new Date(date);
-    nextDate.setDate(nextDate.getDate() + 1);
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
 
-    const snapshot = await db
-      .collection('appointments')
-      .where('date', '>=', date)
-      .where('date', '<', nextDate)
-      .get();
+      const snapshot = await db
+        .collection('appointments')
+        .where('date', '>=', date)
+        .where('date', '<', nextDate)
+        .get();
 
-    last7Days.push(
-      date.toLocaleDateString('es', { weekday: 'short', day: 'numeric' })
-    );
-    appointmentCounts.push(snapshot.size);
-  }
+      last7Days.push(
+        date.toLocaleDateString('es', { weekday: 'short', day: 'numeric' })
+      );
+      appointmentCounts.push(snapshot.size);
+    }
 
-  if (appointmentsChart) appointmentsChart.destroy();
-  appointmentsChart = new Chart(ctx1, {
-    type: 'line',
-    data: {
-      labels: last7Days,
-      datasets: [
-        {
-          label: 'Citas',
-          data: appointmentCounts,
-          borderColor: '#16A34A',
-          backgroundColor: 'rgba(22, 163, 74, 0.1)',
-          tension: 0.1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
+    if (appointmentsChart) appointmentsChart.destroy();
+    appointmentsChart = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: last7Days,
+        datasets: [
+          {
+            label: 'Citas',
+            data: appointmentCounts,
+            borderColor: '#16A34A',
+            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+            tension: 0.1,
+          },
+        ],
       },
-    },
-  });
-
-  // Services chart
-  const servicesData = {};
-  const appointmentsSnapshot = await db.collection('appointments').get();
-
-  appointmentsSnapshot.forEach((doc) => {
-    const service = doc.data().service || 'Sin servicio';
-    servicesData[service] = (servicesData[service] || 0) + 1;
-  });
-
-  const ctx2 = document.getElementById('servicesChart').getContext('2d');
-
-  if (servicesChart) servicesChart.destroy();
-  servicesChart = new Chart(ctx2, {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(servicesData),
-      datasets: [
-        {
-          data: Object.values(servicesData),
-          backgroundColor: [
-            '#16A34A',
-            '#15803d',
-            '#166534',
-            '#14532d',
-            '#052e16',
-          ],
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'bottom',
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
         },
       },
-    },
-  });
+    });
+
+    // Services chart
+    const servicesData = {};
+    const appointmentsSnapshot = await db.collection('appointments').get();
+
+    appointmentsSnapshot.forEach((doc) => {
+      const service = doc.data().service || 'Sin servicio';
+      servicesData[service] = (servicesData[service] || 0) + 1;
+    });
+
+    const ctx2 = document.getElementById('servicesChart').getContext('2d');
+
+    if (servicesChart) servicesChart.destroy();
+    servicesChart = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(servicesData),
+        datasets: [
+          {
+            data: Object.values(servicesData),
+            backgroundColor: [
+              '#16A34A',
+              '#15803d',
+              '#166534',
+              '#14532d',
+              '#052e16',
+            ],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+        },
+      },
+    });
   } catch (error) {
     Logger.error('Error loading charts:', error);
     showNotification('Error al cargar las gráficas', 'error');
@@ -378,6 +384,10 @@ function toggleCalendarView() {
     calendarView.style.display = 'none';
     tableView.style.display = 'block';
     toggleText.textContent = 'Ver Calendario';
+    if (calendarEventsUnsubscribe) {
+      calendarEventsUnsubscribe();
+      calendarEventsUnsubscribe = null;
+    }
   }
 }
 
@@ -407,34 +417,44 @@ function initializeCalendar() {
 }
 
 // Load calendar events
-async function loadCalendarEvents() {
-  try {
-    const snapshot = await db.collection('appointments').get();
-    const events = [];
-
-    snapshot.forEach((doc) => {
-      const appointment = doc.data();
-      if (appointment.date) {
-        const date = new Date(appointment.date.seconds * 1000);
-        events.push({
-          id: doc.id,
-          title: `${appointment.time || ''} - ${appointment.patientName || 'Sin nombre'} (${appointment.service || 'Sin servicio'})`,
-          start: date.toISOString().split('T')[0],
-          backgroundColor:
-            appointment.status === 'completada'
-              ? '#16A34A'
-              : appointment.status === 'cancelada'
-                ? '#dc3545'
-                : '#ffc107',
-        });
-      }
-    });
-
-    calendar.removeAllEvents();
-    calendar.addEventSource(events);
-  } catch (error) {
-    Logger.log('Error loading calendar events:', error);
+function loadCalendarEvents() {
+  if (calendarEventsUnsubscribe) {
+    calendarEventsUnsubscribe();
   }
+
+  calendarEventsUnsubscribe = db.collection('appointments').onSnapshot(
+    (snapshot) => {
+      const events = [];
+
+      snapshot.forEach((doc) => {
+        const appointment = doc.data();
+        if (appointment.date) {
+          const date = new Date(appointment.date.seconds * 1000);
+          events.push({
+            id: doc.id,
+            title: `${
+              appointment.time || ''
+            } - ${appointment.patientName || 'Sin nombre'} (${
+              appointment.service || 'Sin servicio'
+            })`,
+            start: date.toISOString().split('T')[0],
+            backgroundColor:
+              appointment.status === 'completada'
+                ? '#16A34A'
+                : appointment.status === 'cancelada'
+                  ? '#dc3545'
+                  : '#ffc107',
+          });
+        }
+      });
+
+      calendar.removeAllEvents();
+      calendar.addEventSource(events);
+    },
+    (error) => {
+      Logger.log('Error loading calendar events:', error);
+    }
+  );
 }
 
 // Load appointments
@@ -595,21 +615,24 @@ async function loadPatients() {
       // First, let's get appointment counts for each patient
       const appointmentsSnapshot = await db.collection('appointments').get();
       const patientAppointments = {};
-      
+
       appointmentsSnapshot.forEach((doc) => {
         const apt = doc.data();
         if (apt.patientId) {
           if (!patientAppointments[apt.patientId]) {
             patientAppointments[apt.patientId] = {
               count: 0,
-              lastVisit: null
+              lastVisit: null,
             };
           }
           patientAppointments[apt.patientId].count++;
-          
+
           const aptDate = apt.date ? new Date(apt.date.seconds * 1000) : null;
-          if (aptDate && (!patientAppointments[apt.patientId].lastVisit || 
-              aptDate > patientAppointments[apt.patientId].lastVisit)) {
+          if (
+            aptDate &&
+            (!patientAppointments[apt.patientId].lastVisit ||
+              aptDate > patientAppointments[apt.patientId].lastVisit)
+          ) {
             patientAppointments[apt.patientId].lastVisit = aptDate;
           }
         }
@@ -620,11 +643,16 @@ async function loadPatients() {
         const birthDate = patient.birthDate || 'N/A';
         const gender = patient.gender || patient.genero || '-';
         const phone = patient.phone || '';
-        
+
         // Get appointment info for this patient
-        const aptInfo = patientAppointments[doc.id] || { count: 0, lastVisit: null };
-        const lastVisit = aptInfo.lastVisit ? aptInfo.lastVisit.toLocaleDateString() : '-';
-        
+        const aptInfo = patientAppointments[doc.id] || {
+          count: 0,
+          lastVisit: null,
+        };
+        const lastVisit = aptInfo.lastVisit
+          ? aptInfo.lastVisit.toLocaleDateString()
+          : '-';
+
         const row = `
                     <tr>
                         <td>${patient.name || patient.displayName || 'N/A'}</td>
@@ -707,12 +735,20 @@ async function loadServices() {
           : null;
 
         // Handle different field name variations
-        const serviceName = service.name || service.serviceName || service.nombre || doc.id || 'N/A';
-        const serviceCategory = service.category || service.categoria || service.type || 'General';
-        const serviceDuration = service.duration || service.duracion || service.sessionDuration || 60;
-        const servicePrice = service.price || service.precio || service.cost || 0;
+        const serviceName =
+          service.name ||
+          service.serviceName ||
+          service.nombre ||
+          doc.id ||
+          'N/A';
+        const serviceCategory =
+          service.category || service.categoria || service.type || 'General';
+        const serviceDuration =
+          service.duration || service.duracion || service.sessionDuration || 60;
+        const servicePrice =
+          service.price || service.precio || service.cost || 0;
         const isActive = service.active !== undefined ? service.active : true;
-        
+
         const row = `
                     <tr>
                         <td>${serviceName}</td>
@@ -742,73 +778,73 @@ async function loadServices() {
 async function addDefaultServices() {
   try {
     const defaultServices = [
-    {
-      id: 'yoga',
-      name: 'Yoga Terapéutico',
-      category: 'Bienestar',
-      duration: 60,
-      price: 40,
-      active: true,
-      isGroupService: true,
-      maxParticipants: 16,
-      hasCapacityManagement: true,
-    },
-    {
-      id: 'massage',
-      name: 'Masajes',
-      category: 'Bienestar',
-      duration: 60,
-      price: 80,
-      active: true,
-      isGroupService: false,
-      maxParticipants: 1,
-      hasCapacityManagement: true,
-    },
-    {
-      id: 'sauna',
-      name: 'Sauna y Baño Helado',
-      category: 'Bienestar',
-      duration: 45,
-      price: 50,
-      active: true,
-      isGroupService: false,
-      maxParticipants: 1,
-      hasCapacityManagement: true,
-    },
-    {
-      id: 'hyperbaric',
-      name: 'Cámara Hiperbárica',
-      category: 'Medicina',
-      duration: 90,
-      price: 120,
-      active: true,
-      isGroupService: false,
-      maxParticipants: 1,
-      hasCapacityManagement: true,
-    },
-    {
-      id: 'iv_therapy',
-      name: 'Sueros IV',
-      category: 'Medicina',
-      duration: 45,
-      price: 100,
-      active: true,
-      isGroupService: true,
-      maxParticipants: 5,
-      hasCapacityManagement: true,
-    },
-  ];
+      {
+        id: 'yoga',
+        name: 'Yoga Terapéutico',
+        category: 'Bienestar',
+        duration: 60,
+        price: 40,
+        active: true,
+        isGroupService: true,
+        maxParticipants: 16,
+        hasCapacityManagement: true,
+      },
+      {
+        id: 'massage',
+        name: 'Masajes',
+        category: 'Bienestar',
+        duration: 60,
+        price: 80,
+        active: true,
+        isGroupService: false,
+        maxParticipants: 1,
+        hasCapacityManagement: true,
+      },
+      {
+        id: 'sauna',
+        name: 'Sauna y Baño Helado',
+        category: 'Bienestar',
+        duration: 45,
+        price: 50,
+        active: true,
+        isGroupService: false,
+        maxParticipants: 1,
+        hasCapacityManagement: true,
+      },
+      {
+        id: 'hyperbaric',
+        name: 'Cámara Hiperbárica',
+        category: 'Medicina',
+        duration: 90,
+        price: 120,
+        active: true,
+        isGroupService: false,
+        maxParticipants: 1,
+        hasCapacityManagement: true,
+      },
+      {
+        id: 'iv_therapy',
+        name: 'Sueros IV',
+        category: 'Medicina',
+        duration: 45,
+        price: 100,
+        active: true,
+        isGroupService: true,
+        maxParticipants: 5,
+        hasCapacityManagement: true,
+      },
+    ];
 
-  for (const service of defaultServices) {
-    const { id, ...serviceData } = service;
-    await db
-      .collection('services')
-      .doc(id)
-      .set({
-        ...serviceData,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-  }
+    for (const service of defaultServices) {
+      const { id, ...serviceData } = service;
+      await db
+        .collection('services')
+        .doc(id)
+        .set({
+          ...serviceData,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
     loadServices(); // Reload the table
   } catch (error) {
@@ -826,6 +862,12 @@ function showModal(title, content) {
 
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
+  if (
+    window.serviceCalendar &&
+    typeof window.serviceCalendar.cleanup === 'function'
+  ) {
+    window.serviceCalendar.cleanup();
+  }
 }
 
 // Expose modal functions globally
@@ -856,8 +898,8 @@ async function showServiceCalendar(serviceId, serviceName) {
     const serviceDoc = await db.collection('services').doc(serviceId).get();
     const service = serviceDoc.data();
 
-  // Create calendar content
-  modalBody.innerHTML = `
+    // Create calendar content
+    modalBody.innerHTML = `
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
@@ -890,13 +932,13 @@ async function showServiceCalendar(serviceId, serviceName) {
         <div id="serviceCalendarContainer" style="background: white; padding: 20px; border-radius: 8px; min-height: 600px;"></div>
     `;
 
-  // Show modal
-  modal.classList.add('active');
+    // Show modal
+    modal.classList.add('active');
 
-  // Initialize calendar after modal is shown
-  setTimeout(() => {
-    initializeCalendarForService(serviceId, service);
-  }, 100);
+    // Initialize calendar after modal is shown
+    setTimeout(() => {
+      initializeCalendarForService(serviceId, service);
+    }, 100);
   } catch (error) {
     Logger.error('Error showing service calendar:', error);
     showNotification('Error al mostrar el calendario del servicio', 'error');
@@ -913,96 +955,99 @@ async function initializeCalendarForService(serviceId, serviceData) {
 
     // Get appointments for this service
     const appointmentsSnapshot = await db
-    .collection('appointments')
-    .where('serviceId', '==', serviceId)
-    .where('date', '>=', new Date())
-    .get();
+      .collection('appointments')
+      .where('serviceId', '==', serviceId)
+      .where('date', '>=', new Date())
+      .get();
 
-  const events = [];
-  const slotCounts = {}; // Track bookings per slot
+    const events = [];
+    const slotCounts = {}; // Track bookings per slot
 
-  appointmentsSnapshot.forEach((doc) => {
-    const appointment = doc.data();
-    const date = appointment.date.toDate();
-    const dateStr = date.toISOString().split('T')[0];
-    const timeKey = `${dateStr}_${appointment.time || appointment.startTime}`;
+    appointmentsSnapshot.forEach((doc) => {
+      const appointment = doc.data();
+      const date = appointment.date.toDate();
+      const dateStr = date.toISOString().split('T')[0];
+      const timeKey = `${dateStr}_${appointment.time || appointment.startTime}`;
 
-    // Count bookings per slot
-    slotCounts[timeKey] = (slotCounts[timeKey] || 0) + 1;
+      // Count bookings per slot
+      slotCounts[timeKey] = (slotCounts[timeKey] || 0) + 1;
 
-    // Create event
-    const startTime = appointment.time || appointment.startTime || '09:00';
-    const [hours, minutes] = startTime.split(':');
-    const start = new Date(date);
-    start.setHours(parseInt(hours), parseInt(minutes));
+      // Create event
+      const startTime = appointment.time || appointment.startTime || '09:00';
+      const [hours, minutes] = startTime.split(':');
+      const start = new Date(date);
+      start.setHours(parseInt(hours), parseInt(minutes));
 
-    const end = new Date(start);
-    end.setMinutes(end.getMinutes() + (serviceData.duration || 60));
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + (serviceData.duration || 60));
 
-    events.push({
-      id: doc.id,
-      title: appointment.patientName || appointment.userName || 'Reservado',
-      start: start,
-      end: end,
-      extendedProps: {
-        appointmentId: doc.id,
-        patientId: appointment.patientId || appointment.userId,
-        status: appointment.status,
-        phone: appointment.userPhone,
+      events.push({
+        id: doc.id,
+        title: appointment.patientName || appointment.userName || 'Reservado',
+        start: start,
+        end: end,
+        extendedProps: {
+          appointmentId: doc.id,
+          patientId: appointment.patientId || appointment.userId,
+          status: appointment.status,
+          phone: appointment.userPhone,
+        },
+      });
+    });
+
+    // Create calendar
+    window.currentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'timeGridWeek',
+      locale: 'es',
+      height: 600,
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay',
+      },
+      slotMinTime: '06:00:00',
+      slotMaxTime: '21:00:00',
+      slotDuration: '00:30:00',
+      expandRows: true,
+      events: events,
+
+      eventClick: function (info) {
+        showAppointmentDetails(info.event.extendedProps.appointmentId);
+      },
+
+      dateClick: function (info) {
+        // Create new appointment slot
+        createServiceSlot(serviceId, info.date);
+      },
+
+      eventDidMount: function (info) {
+        // Color based on capacity
+        const dateStr = info.event.start.toISOString().split('T')[0];
+        const timeStr = info.event.start.toTimeString().slice(0, 5);
+        const timeKey = `${dateStr}_${timeStr}`;
+        const booked = slotCounts[timeKey] || 0;
+        const capacity = serviceData.maxParticipants || 1;
+
+        if (booked >= capacity) {
+          info.el.style.backgroundColor = '#DC2626'; // Red - full
+        } else if (booked >= capacity * 0.8) {
+          info.el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
+        } else {
+          info.el.style.backgroundColor = '#16A34A'; // Green - available
+        }
+
+        // Add tooltip
+        info.el.title = `${booked}/${capacity} reservados`;
       },
     });
-  });
-
-  // Create calendar
-  window.currentCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'timeGridWeek',
-    locale: 'es',
-    height: 600,
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay',
-    },
-    slotMinTime: '06:00:00',
-    slotMaxTime: '21:00:00',
-    slotDuration: '00:30:00',
-    expandRows: true,
-    events: events,
-
-    eventClick: function (info) {
-      showAppointmentDetails(info.event.extendedProps.appointmentId);
-    },
-
-    dateClick: function (info) {
-      // Create new appointment slot
-      createServiceSlot(serviceId, info.date);
-    },
-
-    eventDidMount: function (info) {
-      // Color based on capacity
-      const dateStr = info.event.start.toISOString().split('T')[0];
-      const timeStr = info.event.start.toTimeString().slice(0, 5);
-      const timeKey = `${dateStr}_${timeStr}`;
-      const booked = slotCounts[timeKey] || 0;
-      const capacity = serviceData.maxParticipants || 1;
-
-      if (booked >= capacity) {
-        info.el.style.backgroundColor = '#DC2626'; // Red - full
-      } else if (booked >= capacity * 0.8) {
-        info.el.style.backgroundColor = '#F59E0B'; // Yellow - almost full
-      } else {
-        info.el.style.backgroundColor = '#16A34A'; // Green - available
-      }
-
-      // Add tooltip
-      info.el.title = `${booked}/${capacity} reservados`;
-    },
-  });
 
     window.currentCalendarInstance.render();
   } catch (error) {
     Logger.error('Error initializing calendar for service:', error);
-    showNotification('Error al inicializar el calendario del servicio', 'error');
+    showNotification(
+      'Error al inicializar el calendario del servicio',
+      'error'
+    );
   }
 }
 
@@ -1299,35 +1344,34 @@ function viewPatient(id) {
 async function showAddAppointment(preselectedDate = null) {
   try {
     // Get lists for dropdowns
-    const [patientsSnapshot, staffSnapshot, servicesSnapshot] = await Promise.all(
-    [
-      db.collection('users').where('role', '==', 'patient').get(),
-      db.collection('staff').where('active', '==', true).get(),
-      db.collection('services').where('active', '==', true).get(),
-    ]
-  );
+    const [patientsSnapshot, staffSnapshot, servicesSnapshot] =
+      await Promise.all([
+        db.collection('users').where('role', '==', 'patient').get(),
+        db.collection('staff').where('active', '==', true).get(),
+        db.collection('services').where('active', '==', true).get(),
+      ]);
 
-  let patientsOptions = '<option value="">Seleccionar paciente</option>';
-  patientsSnapshot.forEach((doc) => {
-    const patient = doc.data();
-    patientsOptions += `<option value="${doc.id}">${patient.name || patient.email}</option>`;
-  });
+    let patientsOptions = '<option value="">Seleccionar paciente</option>';
+    patientsSnapshot.forEach((doc) => {
+      const patient = doc.data();
+      patientsOptions += `<option value="${doc.id}">${patient.name || patient.email}</option>`;
+    });
 
-  let staffOptions = '<option value="">Seleccionar profesional</option>';
-  staffSnapshot.forEach((doc) => {
-    const staff = doc.data();
-    staffOptions += `<option value="${doc.id}">${staff.name} (${staff.role})</option>`;
-  });
+    let staffOptions = '<option value="">Seleccionar profesional</option>';
+    staffSnapshot.forEach((doc) => {
+      const staff = doc.data();
+      staffOptions += `<option value="${doc.id}">${staff.name} (${staff.role})</option>`;
+    });
 
-  let servicesOptions = '<option value="">Seleccionar servicio</option>';
-  servicesSnapshot.forEach((doc) => {
-    const service = doc.data();
-    servicesOptions += `<option value="${doc.id}">${service.name} - ${service.duration}min - $${service.price}</option>`;
-  });
+    let servicesOptions = '<option value="">Seleccionar servicio</option>';
+    servicesSnapshot.forEach((doc) => {
+      const service = doc.data();
+      servicesOptions += `<option value="${doc.id}">${service.name} - ${service.duration}min - $${service.price}</option>`;
+    });
 
-  const today = preselectedDate || new Date().toISOString().split('T')[0];
+    const today = preselectedDate || new Date().toISOString().split('T')[0];
 
-  const content = `
+    const content = `
         <form id="addAppointmentForm">
             <div class="form-group">
                 <label>Paciente</label>
@@ -1365,81 +1409,84 @@ async function showAddAppointment(preselectedDate = null) {
         </div>
     `;
 
-  showModal('Nueva Cita', content);
+    showModal('Nueva Cita', content);
 
-  document
-    .getElementById('addAppointmentForm')
-    .addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
+    document
+      .getElementById('addAppointmentForm')
+      .addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
 
-      try {
-        const serviceId = formData.get('serviceId');
-        const date = new Date(formData.get('date'));
-        const time = formData.get('time');
-        const patientId = formData.get('patientId');
+        try {
+          const serviceId = formData.get('serviceId');
+          const date = new Date(formData.get('date'));
+          const time = formData.get('time');
+          const patientId = formData.get('patientId');
 
-        // Validate booking if service has capacity management
-        if (
-          window.serviceCapacity &&
-          window.serviceCapacity.SERVICE_CAPACITY[serviceId]
-        ) {
-          const validation = await window.serviceCapacity.validateBooking(
-            serviceId,
-            date,
-            time,
-            patientId
-          );
+          // Validate booking if service has capacity management
+          if (
+            window.serviceCapacity &&
+            window.serviceCapacity.SERVICE_CAPACITY[serviceId]
+          ) {
+            const validation = await window.serviceCapacity.validateBooking(
+              serviceId,
+              date,
+              time,
+              patientId
+            );
 
-          if (!validation.valid) {
-            alert(`No se puede agendar la cita: ${validation.reason}`);
-            return;
+            if (!validation.valid) {
+              alert(`No se puede agendar la cita: ${validation.reason}`);
+              return;
+            }
           }
-        }
 
-        // Get selected data
-        const patientDoc = await db.collection('users').doc(patientId).get();
-        const staffDoc = await db
-          .collection('staff')
-          .doc(formData.get('staffId'))
-          .get();
-        const serviceDoc = await db.collection('services').doc(serviceId).get();
+          // Get selected data
+          const patientDoc = await db.collection('users').doc(patientId).get();
+          const staffDoc = await db
+            .collection('staff')
+            .doc(formData.get('staffId'))
+            .get();
+          const serviceDoc = await db
+            .collection('services')
+            .doc(serviceId)
+            .get();
 
-        const appointmentData = {
-          patientId: patientId,
-          patientName: patientDoc.data().name || patientDoc.data().email,
-          patientPhone: patientDoc.data().phone || '',
-          staffId: formData.get('staffId'),
-          staffName: staffDoc.data().name,
-          serviceId: serviceId,
-          service: serviceDoc.data().name,
-          date: firebase.firestore.Timestamp.fromDate(date),
-          time: time,
-          notes: formData.get('notes'),
-          status: 'pendiente',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          createdBy: currentUser.uid,
-        };
+          const appointmentData = {
+            patientId: patientId,
+            patientName: patientDoc.data().name || patientDoc.data().email,
+            patientPhone: patientDoc.data().phone || '',
+            staffId: formData.get('staffId'),
+            staffName: staffDoc.data().name,
+            serviceId: serviceId,
+            service: serviceDoc.data().name,
+            date: firebase.firestore.Timestamp.fromDate(date),
+            time: time,
+            notes: formData.get('notes'),
+            status: 'pendiente',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid,
+          };
 
-        await db.collection('appointments').add(appointmentData);
+          await db.collection('appointments').add(appointmentData);
 
-        closeModal();
+          closeModal();
 
-        // Reload appointments
-        if (
-          document.getElementById('appointments').classList.contains('active')
-        ) {
-          loadAppointments();
-          if (calendar) {
-            loadCalendarEvents();
+          // Reload appointments
+          if (
+            document.getElementById('appointments').classList.contains('active')
+          ) {
+            loadAppointments();
+            if (calendar) {
+              loadCalendarEvents();
+            }
           }
-        }
 
-        alert('Cita agendada exitosamente');
-      } catch (error) {
-        alert('Error al agendar cita: ' + error.message);
-      }
-    });
+          alert('Cita agendada exitosamente');
+        } catch (error) {
+          alert('Error al agendar cita: ' + error.message);
+        }
+      });
   } catch (error) {
     Logger.error('Error showing add appointment modal:', error);
     showNotification('Error al mostrar el formulario de cita', 'error');
@@ -1687,30 +1734,30 @@ async function loadPayments() {
 async function createSamplePayments() {
   try {
     const samplePayments = [
-    {
-      patientName: 'Juan Pérez',
-      service: 'Consulta Médica',
-      amount: 50,
-      method: 'Efectivo',
-      status: 'pagado',
-      date: firebase.firestore.Timestamp.now(),
-    },
-    {
-      patientName: 'María García',
-      service: 'Terapia Psicológica',
-      amount: 80,
-      method: 'Tarjeta',
-      status: 'pendiente',
-      date: firebase.firestore.Timestamp.now(),
-    },
-  ];
+      {
+        patientName: 'Juan Pérez',
+        service: 'Consulta Médica',
+        amount: 50,
+        method: 'Efectivo',
+        status: 'pagado',
+        date: firebase.firestore.Timestamp.now(),
+      },
+      {
+        patientName: 'María García',
+        service: 'Terapia Psicológica',
+        amount: 80,
+        method: 'Tarjeta',
+        status: 'pendiente',
+        date: firebase.firestore.Timestamp.now(),
+      },
+    ];
 
-  for (const payment of samplePayments) {
-    await db.collection('payments').add({
-      ...payment,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  }
+    for (const payment of samplePayments) {
+      await db.collection('payments').add({
+        ...payment,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
     loadPayments();
   } catch (error) {
@@ -1723,23 +1770,23 @@ async function createSamplePayments() {
 async function showAddPayment() {
   try {
     const [patientsSnapshot, servicesSnapshot] = await Promise.all([
-    db.collection('users').where('role', '==', 'patient').get(),
-    db.collection('services').where('active', '==', true).get(),
-  ]);
+      db.collection('users').where('role', '==', 'patient').get(),
+      db.collection('services').where('active', '==', true).get(),
+    ]);
 
-  let patientsOptions = '<option value="">Seleccionar paciente</option>';
-  patientsSnapshot.forEach((doc) => {
-    const patient = doc.data();
-    patientsOptions += `<option value="${doc.id}">${patient.name || patient.email}</option>`;
-  });
+    let patientsOptions = '<option value="">Seleccionar paciente</option>';
+    patientsSnapshot.forEach((doc) => {
+      const patient = doc.data();
+      patientsOptions += `<option value="${doc.id}">${patient.name || patient.email}</option>`;
+    });
 
-  let servicesOptions = '<option value="">Seleccionar servicio</option>';
-  servicesSnapshot.forEach((doc) => {
-    const service = doc.data();
-    servicesOptions += `<option value="${doc.id}" data-price="${service.price}">${service.name} - $${service.price}</option>`;
-  });
+    let servicesOptions = '<option value="">Seleccionar servicio</option>';
+    servicesSnapshot.forEach((doc) => {
+      const service = doc.data();
+      servicesOptions += `<option value="${doc.id}" data-price="${service.price}">${service.name} - $${service.price}</option>`;
+    });
 
-  const content = `
+    const content = `
         <form id="addPaymentForm">
             <div class="form-group">
                 <label>Paciente</label>
@@ -1771,46 +1818,46 @@ async function showAddPayment() {
         </form>
     `;
 
-  showModal('Registrar Pago', content);
+    showModal('Registrar Pago', content);
 
-  document
-    .getElementById('addPaymentForm')
-    .addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
+    document
+      .getElementById('addPaymentForm')
+      .addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
 
-      try {
-        const patientDoc = await db
-          .collection('users')
-          .doc(formData.get('patientId'))
-          .get();
-        const serviceDoc = await db
-          .collection('services')
-          .doc(formData.get('serviceId'))
-          .get();
+        try {
+          const patientDoc = await db
+            .collection('users')
+            .doc(formData.get('patientId'))
+            .get();
+          const serviceDoc = await db
+            .collection('services')
+            .doc(formData.get('serviceId'))
+            .get();
 
-        const paymentData = {
-          patientId: formData.get('patientId'),
-          patientName: patientDoc.data().name || patientDoc.data().email,
-          serviceId: formData.get('serviceId'),
-          service: serviceDoc.data().name,
-          amount: parseFloat(formData.get('amount')),
-          method: formData.get('method'),
-          notes: formData.get('notes'),
-          status: 'pagado',
-          date: firebase.firestore.Timestamp.now(),
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          createdBy: currentUser.uid,
-        };
+          const paymentData = {
+            patientId: formData.get('patientId'),
+            patientName: patientDoc.data().name || patientDoc.data().email,
+            serviceId: formData.get('serviceId'),
+            service: serviceDoc.data().name,
+            amount: parseFloat(formData.get('amount')),
+            method: formData.get('method'),
+            notes: formData.get('notes'),
+            status: 'pagado',
+            date: firebase.firestore.Timestamp.now(),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid,
+          };
 
-        await db.collection('payments').add(paymentData);
-        closeModal();
-        loadPayments();
-        alert('Pago registrado exitosamente');
-      } catch (error) {
-        alert('Error al registrar pago: ' + error.message);
-      }
-    });
+          await db.collection('payments').add(paymentData);
+          closeModal();
+          loadPayments();
+          alert('Pago registrado exitosamente');
+        } catch (error) {
+          alert('Error al registrar pago: ' + error.message);
+        }
+      });
   } catch (error) {
     Logger.error('Error showing add payment modal:', error);
     showNotification('Error al mostrar el formulario de pago', 'error');
@@ -2217,12 +2264,12 @@ async function testPushNotification() {
 
     // Log test notification
     await db.collection('notifications').add({
-    type: 'Push - Prueba',
-    recipient: 'Todos los usuarios',
-    message: 'Notificación de prueba desde el panel admin',
-    status: 'enviado',
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
+      type: 'Push - Prueba',
+      recipient: 'Todos los usuarios',
+      message: 'Notificación de prueba desde el panel admin',
+      status: 'enviado',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
 
     loadNotifications();
   } catch (error) {
@@ -4105,47 +4152,47 @@ async function checkExpiringProducts() {
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
     const expiringProducts = await db
-    .collection('products')
-    .where('trackExpiry', '==', true)
-    .where('expiryDate', '<=', thirtyDaysFromNow)
-    .where('stock', '>', 0)
-    .get();
+      .collection('products')
+      .where('trackExpiry', '==', true)
+      .where('expiryDate', '<=', thirtyDaysFromNow)
+      .where('stock', '>', 0)
+      .get();
 
-  const alerts = [];
-  expiringProducts.forEach((doc) => {
-    const product = doc.data();
-    const expiryDate = new Date(product.expiryDate.seconds * 1000);
-    const daysToExpiry = Math.floor(
-      (expiryDate - new Date()) / (1000 * 60 * 60 * 24)
-    );
+    const alerts = [];
+    expiringProducts.forEach((doc) => {
+      const product = doc.data();
+      const expiryDate = new Date(product.expiryDate.seconds * 1000);
+      const daysToExpiry = Math.floor(
+        (expiryDate - new Date()) / (1000 * 60 * 60 * 24)
+      );
 
-    alerts.push({
-      productName: product.name,
-      expiryDate: expiryDate.toLocaleDateString(),
-      daysToExpiry: daysToExpiry,
-      stock: product.stock,
-      id: doc.id,
+      alerts.push({
+        productName: product.name,
+        expiryDate: expiryDate.toLocaleDateString(),
+        daysToExpiry: daysToExpiry,
+        stock: product.stock,
+        id: doc.id,
+      });
     });
-  });
 
-  // Send WhatsApp alerts if configured
-  const whatsappConfig = await getWhatsAppConfig();
-  if (whatsappConfig && alerts.length > 0) {
-    const whatsapp = new WhatsAppAutomation(whatsappConfig);
+    // Send WhatsApp alerts if configured
+    const whatsappConfig = await getWhatsAppConfig();
+    if (whatsappConfig && alerts.length > 0) {
+      const whatsapp = new WhatsAppAutomation(whatsappConfig);
 
-    // Send to admin
-    const adminPhone = whatsappConfig.adminPhone || currentUser.phone;
-    if (adminPhone) {
-      const message = `⚠️ *Productos próximos a vencer*\n\n${alerts
-        .map(
-          (a) =>
-            `• ${a.productName}\n  Vence: ${a.expiryDate} (${a.daysToExpiry} días)\n  Stock: ${a.stock} unidades`
-        )
-        .join('\n\n')}`;
+      // Send to admin
+      const adminPhone = whatsappConfig.adminPhone || currentUser.phone;
+      if (adminPhone) {
+        const message = `⚠️ *Productos próximos a vencer*\n\n${alerts
+          .map(
+            (a) =>
+              `• ${a.productName}\n  Vence: ${a.expiryDate} (${a.daysToExpiry} días)\n  Stock: ${a.stock} unidades`
+          )
+          .join('\n\n')}`;
 
-      await whatsapp.sendMessage(adminPhone, message);
+        await whatsapp.sendMessage(adminPhone, message);
+      }
     }
-  }
 
     return alerts;
   } catch (error) {
@@ -4320,64 +4367,64 @@ async function sendWhatsAppMessages() {
 
     document.getElementById('whatsappLoading').style.display = 'block';
 
-  let recipients = [];
+    let recipients = [];
 
-  // Get recipients based on type
-  switch (type) {
-    case 'single':
-      const phone = document.getElementById('phoneNumber').value;
-      if (phone) recipients.push({ phone, name: 'Usuario' });
-      break;
+    // Get recipients based on type
+    switch (type) {
+      case 'single':
+        const phone = document.getElementById('phoneNumber').value;
+        if (phone) recipients.push({ phone, name: 'Usuario' });
+        break;
 
-    case 'custom':
-      const customNumbers = document
-        .getElementById('customNumbersList')
-        .value.split('\n')
-        .filter((n) => n.trim())
-        .map((n) => ({ phone: n.trim(), name: 'Usuario' }));
-      recipients = customNumbers;
-      break;
+      case 'custom':
+        const customNumbers = document
+          .getElementById('customNumbersList')
+          .value.split('\n')
+          .filter((n) => n.trim())
+          .map((n) => ({ phone: n.trim(), name: 'Usuario' }));
+        recipients = customNumbers;
+        break;
 
-    case 'group':
-      const checkboxes = document.querySelectorAll(
-        '#patientsList input[type="checkbox"]:checked'
-      );
-      checkboxes.forEach((cb) => {
-        if (cb.value) {
-          const patient = whatsappPatients.find((p) => p.phone === cb.value);
-          recipients.push({
-            phone: cb.value,
-            name: patient?.name || 'Paciente',
-          });
-        }
-      });
-      break;
+      case 'group':
+        const checkboxes = document.querySelectorAll(
+          '#patientsList input[type="checkbox"]:checked'
+        );
+        checkboxes.forEach((cb) => {
+          if (cb.value) {
+            const patient = whatsappPatients.find((p) => p.phone === cb.value);
+            recipients.push({
+              phone: cb.value,
+              name: patient?.name || 'Paciente',
+            });
+          }
+        });
+        break;
 
-    case 'all':
-      recipients = whatsappPatients
-        .filter((p) => p.phone)
-        .map((p) => ({
-          phone: p.phone,
-          name: p.name || 'Paciente',
-        }));
-      break;
-  }
+      case 'all':
+        recipients = whatsappPatients
+          .filter((p) => p.phone)
+          .map((p) => ({
+            phone: p.phone,
+            name: p.name || 'Paciente',
+          }));
+        break;
+    }
 
-  if (recipients.length === 0) {
-    alert('No hay destinatarios seleccionados');
+    if (recipients.length === 0) {
+      alert('No hay destinatarios seleccionados');
+      document.getElementById('whatsappLoading').style.display = 'none';
+      return;
+    }
+
+    // Send messages
+    for (const recipient of recipients) {
+      await sendSingleWhatsAppMessage(recipient, message);
+      // Wait between messages
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
     document.getElementById('whatsappLoading').style.display = 'none';
-    return;
-  }
-
-  // Send messages
-  for (const recipient of recipients) {
-    await sendSingleWhatsAppMessage(recipient, message);
-    // Wait between messages
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-
-  document.getElementById('whatsappLoading').style.display = 'none';
-  updateWhatsAppStats();
+    updateWhatsAppStats();
   } catch (error) {
     Logger.error('Error sending WhatsApp messages:', error);
     showNotification('Error al enviar mensajes de WhatsApp', 'error');
@@ -4389,10 +4436,10 @@ async function sendWhatsAppMessages() {
 async function sendSingleWhatsAppMessage(recipient, message) {
   try {
     const personalizedMessage = message
-    .replace('{nombre}', recipient.name)
-    .replace('{fecha}', new Date().toLocaleDateString())
-    .replace('{hora}', '10:00 AM')
-    .replace('{doctor}', 'Dr. Martínez');
+      .replace('{nombre}', recipient.name)
+      .replace('{fecha}', new Date().toLocaleDateString())
+      .replace('{hora}', '10:00 AM')
+      .replace('{doctor}', 'Dr. Martínez');
     // Save to Firebase
     const logEntry = {
       to: recipient.phone,
