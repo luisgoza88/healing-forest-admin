@@ -406,7 +406,7 @@ function enhanceAllCalendars() {
           createEnhancedServiceCalendar(container);
           break;
         case 'resource':
-          createResourceTimeline(container);
+          createResourceTimelineCalendar(container);
           break;
         default:
           createStandardCalendar(container);
@@ -505,18 +505,18 @@ function createEnhancedServiceCalendar(container) {
   return calendar;
 }
 
-// Create resource timeline view for all professionals
-function createResourceTimeline(container) {
+// Create resource timeline calendar with view switching
+function createResourceTimelineCalendar(container) {
   const calendar = new FullCalendar.Calendar(container, {
     ...CALENDAR_CONFIG,
     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
-    plugins: ['resourceTimeline', 'interaction'],
-    initialView: 'resourceTimelineDay',
+    plugins: ['resourceTimeline', 'dayGrid', 'timeGrid', 'interaction'],
+    initialView: 'dayGridMonth',
 
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
-      right: 'resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth',
+      right: 'dayGridMonth,timeGridWeek,resourceTimelineWeek',
     },
 
     resourceAreaHeaderContent: 'Recursos',
@@ -528,7 +528,6 @@ function createResourceTimeline(container) {
     },
 
     resourceLabelDidMount: function (info) {
-      // Add capacity indicator
       const resource = info.resource;
       if (resource.extendedProps.capacity) {
         const capacityBadge = document.createElement('span');
@@ -566,7 +565,24 @@ function createResourceTimeline(container) {
   });
 
   container._fcCalendar = calendar;
+  window.currentCalendarInstance = calendar;
   calendar.render();
+
+  const viewSelector = document.getElementById('calendarViewSelector');
+  if (viewSelector) {
+    viewSelector.addEventListener('change', function (e) {
+      const view = e.target.value;
+      calendar.changeView(view);
+      const filter = document.getElementById('resourceFilter');
+      if (filter) {
+        filter.style.display = view.includes('resourceTimeline')
+          ? 'block'
+          : 'none';
+      }
+      calendar.refetchResources();
+      calendar.refetchEvents();
+    });
+  }
 
   return calendar;
 }
@@ -1052,46 +1068,87 @@ async function loadServiceEvents(info, serviceId) {
   }
 }
 
+// Cache for resources and active selections
+let cachedResources = [];
+let activeResourceIds = new Set();
+
 // Load resources for timeline
 async function loadResources() {
   try {
-    const resources = [];
+    if (cachedResources.length === 0) {
+      const resources = [];
 
-    // Load rooms
-    const roomsSnapshot = await db.collection('rooms').get();
-    roomsSnapshot.forEach((doc) => {
-      const room = doc.data();
-      resources.push({
-        id: doc.id,
-        title: room.name,
-        eventColor: '#3B82F6',
-        extendedProps: {
-          type: 'room',
-          capacity: room.capacity,
-        },
+      const roomsSnapshot = await db.collection('rooms').get();
+      roomsSnapshot.forEach((doc) => {
+        const room = doc.data();
+        resources.push({
+          id: doc.id,
+          title: room.name,
+          eventColor: '#3B82F6',
+          extendedProps: {
+            type: 'room',
+            capacity: room.capacity,
+          },
+        });
       });
-    });
 
-    // Load staff
-    const staffSnapshot = await db.collection('staff').get();
-    staffSnapshot.forEach((doc) => {
-      const staff = doc.data();
-      resources.push({
-        id: doc.id,
-        title: staff.name,
-        eventColor: '#16A34A',
-        extendedProps: {
-          type: 'staff',
-          specialty: staff.specialty,
-        },
+      const staffSnapshot = await db.collection('staff').get();
+      staffSnapshot.forEach((doc) => {
+        const staff = doc.data();
+        resources.push({
+          id: doc.id,
+          title: staff.name,
+          eventColor: '#16A34A',
+          extendedProps: {
+            type: 'staff',
+            specialty: staff.specialty,
+          },
+        });
       });
-    });
 
-    return resources;
+      cachedResources = resources;
+      activeResourceIds = new Set(resources.map((r) => r.id));
+      renderResourceFilter(resources);
+    }
+
+    return cachedResources.filter(
+      (r) => activeResourceIds.size === 0 || activeResourceIds.has(r.id)
+    );
   } catch (error) {
     Logger.error('Error loading resources:', error);
     return [];
   }
+}
+
+function renderResourceFilter(resources) {
+  const filterContainer = document.getElementById('resourceFilter');
+  if (!filterContainer) return;
+  filterContainer.innerHTML = '';
+
+  resources.forEach((res) => {
+    const label = document.createElement('label');
+    label.style.marginRight = '10px';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = res.id;
+    checkbox.checked = activeResourceIds.has(res.id);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) {
+        activeResourceIds.add(res.id);
+      } else {
+        activeResourceIds.delete(res.id);
+      }
+      if (window.currentCalendarInstance) {
+        window.currentCalendarInstance.refetchResources();
+        window.currentCalendarInstance.refetchEvents();
+      }
+    });
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(` ${res.title}`));
+    filterContainer.appendChild(label);
+  });
 }
 
 // Load timeline events
@@ -1125,7 +1182,10 @@ async function loadTimelineEvents(info) {
       });
     });
 
-    return events;
+    return events.filter(
+      (ev) =>
+        activeResourceIds.size === 0 || activeResourceIds.has(ev.resourceId)
+    );
   } catch (error) {
     Logger.error('Error loading timeline events:', error);
     return [];
@@ -1804,7 +1864,7 @@ window.calendarEnhancements = {
   createDateRangePicker,
   enhanceAllCalendars,
   createEnhancedServiceCalendar,
-  createResourceTimeline,
+  createResourceTimelineCalendar,
   createStandardCalendar,
   createOccupancyHeatmap,
   initializeRealTimeUpdates,

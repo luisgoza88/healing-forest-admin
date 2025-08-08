@@ -715,6 +715,17 @@
 
           <!-- Calendar View -->
           <div id="calendarView" style="display: none; margin-bottom: 30px">
+            <div style="margin-bottom: 10px">
+              <select id="calendarViewSelector">
+                <option value="dayGridMonth">Vista Mensual</option>
+                <option value="timeGridWeek">Vista Semanal</option>
+                <option value="resourceTimelineWeek">Vista Timeline</option>
+              </select>
+            </div>
+            <div
+              id="resourceFilter"
+              style="display: none; margin-bottom: 10px"
+            ></div>
             <div id="calendar"></div>
           </div>
 
@@ -2052,6 +2063,7 @@ _Responde STOP para no recibir más mensajes_</textarea
     <script src="config.js"></script>
     <script src="app.js"></script>
     <script src="service_capacity.js"></script>
+    <script src="calendar_enhancements.js"></script>
     <script src="service_calendar.js"></script>
     <script src="siigo_integration.js"></script>
     <script src="whatsapp_automation.js"></script>
