@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Auth - Healing Forest Admin</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 250px;
+        }
+        #log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug de Autenticación - Healing Forest Admin</h1>
+        
+        <div id="initStatus" class="status info">Inicializando Firebase...</div>
+        
+        <div style="margin: 20px 0;">
+            <h2>Test de Login</h2>
+            <div>
+                <input type="email" id="testEmail" placeholder="Email" value="admin@healingforest.com">
+                <input type="password" id="testPassword" placeholder="Password" value="">
+                <button onclick="testLogin()">Probar Login</button>
+            </div>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <h2>Herramientas de Debug</h2>
+            <button onclick="checkAuthState()">Verificar Estado de Auth</button>
+            <button onclick="listUsers()">Listar Usuarios Admin</button>
+            <button onclick="createTestAdmin()">Crear Admin de Prueba</button>
+            <button onclick="resetPassword()">Resetear Contraseña</button>
+            <button onclick="clearLog()">Limpiar Log</button>
+        </div>
+        
+        <div id="results"></div>
+        
+        <h3>Log de Eventos:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlOrxlLbZV-ZzxDcFrretv2dycKtF4dyM",
+            authDomain: "healling-forest.firebaseapp.com",
+            projectId: "healling-forest",
+            storageBucket: "healling-forest.firebasestorage.app",
+            messagingSenderId: "657330224656",
+            appId: "1:657330224656:web:admin"
+        };
+
+        let auth, db;
+        const log = document.getElementById('log');
+        const results = document.getElementById('results');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            entry.style.borderColor = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#007bff';
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+            addLog('Log limpiado');
+        }
+
+        // Initialize Firebase
+        try {
+            addLog('Inicializando Firebase...');
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            
+            document.getElementById('initStatus').className = 'status success';
+            document.getElementById('initStatus').textContent = '✅ Firebase inicializado correctamente';
+            addLog('Firebase inicializado exitosamente', 'success');
+            
+            // Log configuration
+            addLog('Configuración: ' + JSON.stringify({
+                authDomain: firebaseConfig.authDomain,
+                projectId: firebaseConfig.projectId
+            }));
+            
+        } catch (error) {
+            document.getElementById('initStatus').className = 'status error';
+            document.getElementById('initStatus').textContent = '❌ Error al inicializar Firebase: ' + error.message;
+            addLog('Error de inicialización: ' + error.message, 'error');
+        }
+
+        // Auth state observer
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                addLog(`Usuario autenticado: ${user.email} (${user.uid})`, 'success');
+            } else {
+                addLog('No hay usuario autenticado');
+            }
+        });
+
+        async function testLogin() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            if (!password) {
+                alert('Por favor ingresa una contraseña');
+                return;
+            }
+            
+            addLog(`Intentando login con: ${email}`);
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                addLog(`Login exitoso! UID: ${user.uid}`, 'success');
+                
+                // Check admin role
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        addLog('Datos del usuario: ' + JSON.stringify(userData));
+                        if (userData.role === 'admin') {
+                            addLog('✅ Usuario tiene rol de admin', 'success');
+                        } else {
+                            addLog('⚠️ Usuario NO tiene rol de admin', 'error');
+                        }
+                    } else {
+                        addLog('⚠️ No se encontró documento del usuario en Firestore', 'error');
+                    }
+                } catch (dbError) {
+                    addLog('Error al consultar Firestore: ' + dbError.message, 'error');
+                }
+                
+            } catch (error) {
+                addLog(`Error de login: ${error.code} - ${error.message}`, 'error');
+                
+                if (error.code === 'auth/user-not-found') {
+                    addLog('El usuario no existe en Firebase Auth');
+                } else if (error.code === 'auth/wrong-password') {
+                    addLog('Contraseña incorrecta');
+                } else if (error.code === 'auth/invalid-email') {
+                    addLog('Formato de email inválido');
+                } else if (error.code === 'auth/network-request-failed') {
+                    addLog('Error de red - verifica tu conexión');
+                }
+            }
+        }
+
+        async function checkAuthState() {
+            const user = auth.currentUser;
+            if (user) {
+                addLog(`Estado: Autenticado como ${user.email}`, 'success');
+            } else {
+                addLog('Estado: No autenticado');
+            }
+        }
+
+        async function listUsers() {
+            addLog('Buscando usuarios con rol admin en Firestore...');
+            try {
+                const snapshot = await db.collection('users').where('role', '==', 'admin').get();
+                if (snapshot.empty) {
+                    addLog('No se encontraron usuarios admin en Firestore', 'error');
+                } else {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        addLog(`Admin encontrado: ${data.email} (${doc.id})`);
+                    });
+                }
+            } catch (error) {
+                addLog('Error al buscar usuarios: ' + error.message, 'error');
+            }
+        }
+
+        async function createTestAdmin() {
+            const email = 'test.admin@healingforest.com';
+            const password = 'testadmin123';
+            
+            addLog(`Creando admin de prueba: ${email}`);
+            
+            try {
+                // First try to create the user
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                addLog(`Usuario creado en Auth: ${user.uid}`, 'success');
+                
+                // Create admin document in Firestore
+                await db.collection('users').doc(user.uid).set({
+                    email: email,
+                    name: 'Test Admin',
+                    role: 'admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                addLog(`✅ Admin de prueba creado exitosamente!`, 'success');
+                addLog(`Email: ${email}`);
+                addLog(`Password: ${password}`);
+                
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    addLog('El usuario ya existe, intentando hacer login...', 'info');
+                    try {
+                        await auth.signInWithEmailAndPassword(email, password);
+                        addLog('Login exitoso con usuario existente', 'success');
+                    } catch (loginError) {
+                        addLog('Error al hacer login: ' + loginError.message, 'error');
+                    }
+                } else {
+                    addLog(`Error al crear usuario: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function resetPassword() {
+            const email = document.getElementById('testEmail').value;
+            if (!email) {
+                alert('Por favor ingresa un email primero');
+                return;
+            }
+            
+            addLog(`Enviando email de reset a: ${email}`);
+            
+            try {
+                await auth.sendPasswordResetEmail(email);
+                addLog('✅ Email de reset enviado exitosamente', 'success');
+                alert('Se ha enviado un email para resetear la contraseña');
+            } catch (error) {
+                addLog(`Error al enviar reset: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

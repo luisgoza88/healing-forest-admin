@@ -1,38 +1,11 @@
 # Dependencies
 node_modules/
 
+# Backup files
+*.backup
+
+# Test files
+flutter-admin-template/
+
 # OS files
 .DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Logs
-*.log
-
-# Environment
-.env
-.env.local
-
-# Credentials and secrets
-twilio_config.js
-twilio_credentials.json
-whatsapp_config.js
-config.local.js
-
-# Test files with credentials
-*_credentials.sh
-*_with_keys.js
-send_whatsapp_direct.sh
-test_whatsapp_curl.sh
-whatsapp_server.js
-setup_whatsapp.html
-
-# Script for replacing console logs
-replace-console-logs.js
-
-# Firebase
-.firebase/
-firebase-debug.log
