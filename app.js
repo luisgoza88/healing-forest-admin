@@ -584,8 +584,48 @@ function initializeCalendar() {
 
 // Load calendar events
 async function loadCalendarEvents() {
+    const calendarEl = document.getElementById('calendar');
+    
+    // Show loading indicator
+    if (window.calendarLoadingManager && calendarEl) {
+        window.calendarLoadingManager.showCalendarLoader(calendarEl, 'Cargando citas...');
+    }
+    
     try {
-        const snapshot = await db.collection('appointments').get();
+        // Try to get from cache first
+        let appointments = [];
+        if (window.cachedFirebaseQuery) {
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            
+            appointments = await window.cachedFirebaseQuery.getAppointments(
+                'all', // special key for all services
+                firebase.firestore.Timestamp.fromDate(startOfMonth),
+                firebase.firestore.Timestamp.fromDate(endOfMonth)
+            );
+        }
+        
+        // If no cache, get from Firebase
+        if (!appointments || appointments.length === 0) {
+            const snapshot = await db.collection('appointments').get();
+            appointments = [];
+            snapshot.forEach(doc => {
+                appointments.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Update cache
+            if (window.calendarEventCache) {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                window.calendarEventCache.set(
+                    window.calendarEventCache.generateKey('appointments', 'all', startOfMonth, endOfMonth),
+                    appointments
+                );
+            }
+        }
+        
         const events = [];
         
         // Define service colors
@@ -650,13 +690,41 @@ async function loadCalendarEvents() {
         calendar.addEventSource(events);
     } catch (error) {
         console.error('Error loading calendar events:', error);
+        showNotification('Error al cargar eventos del calendario', 'error');
+    } finally {
+        // Hide loading indicator
+        if (window.calendarLoadingManager && calendarEl) {
+            setTimeout(() => {
+                window.calendarLoadingManager.hideCalendarLoader(calendarEl);
+            }, 300);
+        }
     }
 }
 
 // Load appointments with pagination and error handling
 async function loadAppointments(page = 1) {
+    // Use loading manager if available
+    if (window.calendarLoadingManager) {
+        await window.calendarLoadingManager.withLoader(
+            async () => {
+                await loadAppointmentsData(page);
+            },
+            { type: 'global', message: 'Cargando citas...' }
+        );
+    } else {
+        // Fallback to old loading method
+        try {
+            showLoading(true);
+            await loadAppointmentsData(page);
+        } finally {
+            showLoading(false);
+        }
+    }
+}
+
+// Actual appointment loading logic
+async function loadAppointmentsData(page = 1) {
     try {
-        showLoading(true);
         
         // Initialize pagination helper
         if (!window.appointmentsPagination) {
@@ -739,8 +807,6 @@ async function loadAppointments(page = 1) {
         showNotification('Error al cargar las citas', 'error');
         const tbody = document.querySelector('#appointmentsTable tbody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">Error al cargar las citas. Por favor, recarga la página.</td></tr>';
-    } finally {
-        showLoading(false);
     }
 }
 
@@ -1113,11 +1179,17 @@ async function initializeCalendarForService(serviceId, serviceData) {
     
     if (!calendarEl) return;
     
-    // Get appointments for this service
-    const appointmentsSnapshot = await db.collection('appointments')
-        .where('serviceId', '==', serviceId)
-        .where('date', '>=', new Date())
-        .get();
+    // Show loading indicator while fetching data
+    if (window.calendarLoadingManager) {
+        window.calendarLoadingManager.showCalendarLoader(calendarEl, 'Cargando calendario del servicio...');
+    }
+    
+    try {
+        // Get appointments for this service
+        const appointmentsSnapshot = await db.collection('appointments')
+            .where('serviceId', '==', serviceId)
+            .where('date', '>=', new Date())
+            .get();
     
     const events = [];
     const slotCounts = {}; // Track bookings per slot
@@ -1201,6 +1273,18 @@ async function initializeCalendarForService(serviceId, serviceData) {
     });
     
     window.currentCalendarInstance.render();
+    
+    } catch (error) {
+        console.error('Error loading calendar:', error);
+        showNotification('Error al cargar el calendario', 'error');
+    } finally {
+        // Hide loading indicator
+        if (window.calendarLoadingManager) {
+            setTimeout(() => {
+                window.calendarLoadingManager.hideCalendarLoader(calendarEl);
+            }, 300);
+        }
+    }
 }
 
 // Create new service slot
@@ -1428,27 +1512,71 @@ auth.onAuthStateChanged((user) => {
 });
 
 // Delete functions (placeholder)
-function deleteAppointment(id) {
+async function deleteAppointment(id) {
     if (confirm('¿Estás seguro de eliminar esta cita?')) {
-        db.collection('appointments').doc(id).delete().then(() => {
-            loadAppointments();
-        });
+        if (window.calendarLoadingManager) {
+            await window.calendarLoadingManager.withLoader(
+                async () => {
+                    await db.collection('appointments').doc(id).delete();
+                    
+                    // Invalidate cache
+                    if (window.calendarEventCache) {
+                        window.calendarEventCache.clear();
+                    }
+                    
+                    showNotification('Cita eliminada exitosamente', 'success');
+                    await loadAppointments();
+                },
+                { type: 'global', message: 'Eliminando cita...' }
+            );
+        } else {
+            // Fallback without loading manager
+            db.collection('appointments').doc(id).delete().then(() => {
+                showNotification('Cita eliminada exitosamente', 'success');
+                loadAppointments();
+            }).catch(error => {
+                console.error('Error deleting appointment:', error);
+                showNotification('Error al eliminar la cita', 'error');
+            });
+        }
     }
 }
 
-function deleteStaff(id) {
+async function deleteStaff(id) {
     if (confirm('¿Estás seguro de eliminar este personal?')) {
-        db.collection('staff').doc(id).delete().then(() => {
-            loadStaff();
-        });
+        if (window.calendarLoadingManager) {
+            await window.calendarLoadingManager.withLoader(
+                async () => {
+                    await db.collection('staff').doc(id).delete();
+                    showNotification('Personal eliminado exitosamente', 'success');
+                    await loadStaff();
+                },
+                { type: 'global', message: 'Eliminando personal...' }
+            );
+        } else {
+            db.collection('staff').doc(id).delete().then(() => {
+                loadStaff();
+            });
+        }
     }
 }
 
-function deleteService(id) {
+async function deleteService(id) {
     if (confirm('¿Estás seguro de eliminar este servicio?')) {
-        db.collection('services').doc(id).delete().then(() => {
-            loadServices();
-        });
+        if (window.calendarLoadingManager) {
+            await window.calendarLoadingManager.withLoader(
+                async () => {
+                    await db.collection('services').doc(id).delete();
+                    showNotification('Servicio eliminado exitosamente', 'success');
+                    await loadServices();
+                },
+                { type: 'global', message: 'Eliminando servicio...' }
+            );
+        } else {
+            db.collection('services').doc(id).delete().then(() => {
+                loadServices();
+            });
+        }
     }
 }
 

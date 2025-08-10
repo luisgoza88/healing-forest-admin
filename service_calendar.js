@@ -176,34 +176,97 @@ function getBusinessHours(serviceId) {
 }
 
 // Load service events from Firestore
-function loadServiceEvents(serviceId, startDate, endDate) {
+async function loadServiceEvents(serviceId, startDate, endDate) {
   if (serviceEventsUnsubscribe) {
     serviceEventsUnsubscribe();
   }
 
-  serviceEventsUnsubscribe = db
-    .collection('appointments')
-    .where('serviceId', '==', serviceId)
-    .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
-    .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
-    .where('status', 'in', ['pendiente', 'confirmado'])
-    .onSnapshot(
-      async (appointmentsSnapshot) => {
-        const events = [];
+  // Get calendar element for loading indicator
+  const calendarEl = document.getElementById(`calendar-${serviceId}`) || 
+                     document.querySelector('.calendar-container');
+  
+  // Show loading indicator
+  if (calendarEl && window.calendarLoadingManager) {
+    window.calendarLoadingManager.showCalendarLoader(calendarEl, 'Cargando eventos del calendario...');
+  }
 
-        const scheduleDoc = await db
-          .collection('service_schedules')
-          .doc(serviceId)
-          .get();
-        const schedule = scheduleDoc.data();
+  try {
+    // Check cache first
+    if (window.cachedFirebaseQuery) {
+      const cachedAppointments = await window.cachedFirebaseQuery.getAppointments(
+        serviceId, 
+        firebase.firestore.Timestamp.fromDate(startDate),
+        firebase.firestore.Timestamp.fromDate(endDate)
+      );
+      
+      // Process cached data immediately for better UX
+      if (cachedAppointments && cachedAppointments.length > 0) {
+        await processServiceEvents(serviceId, cachedAppointments, startDate, endDate);
+      }
+    }
 
-        const bookingCounts = {};
-        appointmentsSnapshot.forEach((doc) => {
-          const appointment = doc.data();
-          const dateKey = appointment.date.toDate().toISOString().split('T')[0];
-          const timeKey = `${dateKey}_${appointment.time}`;
-          bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
-        });
+    // Set up real-time listener for updates
+    serviceEventsUnsubscribe = db
+      .collection('appointments')
+      .where('serviceId', '==', serviceId)
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(startDate))
+      .where('date', '<=', firebase.firestore.Timestamp.fromDate(endDate))
+      .where('status', 'in', ['pendiente', 'confirmado'])
+      .onSnapshot(
+        async (appointmentsSnapshot) => {
+          const events = [];
+          const appointments = [];
+          appointmentsSnapshot.forEach(doc => {
+            appointments.push({ id: doc.id, ...doc.data() });
+          });
+          
+          // Update cache
+          if (window.cachedFirebaseQuery) {
+            window.calendarEventCache.set(
+              window.calendarEventCache.generateKey('appointments', serviceId, startDate, endDate),
+              appointments
+            );
+          }
+          
+          await processServiceEvents(serviceId, appointments, startDate, endDate);
+        },
+        (error) => {
+          console.error('Error loading service events:', error);
+          if (window.calendarLoadingManager && calendarEl) {
+            window.calendarLoadingManager.hideCalendarLoader(calendarEl);
+          }
+          showNotification('Error al cargar eventos del calendario', 'error');
+        }
+      );
+  } catch (error) {
+    console.error('Error in loadServiceEvents:', error);
+    showNotification('Error al cargar el calendario', 'error');
+  } finally {
+    // Hide loading indicator
+    if (window.calendarLoadingManager && calendarEl) {
+      setTimeout(() => {
+        window.calendarLoadingManager.hideCalendarLoader(calendarEl);
+      }, 300); // Small delay for smooth transition
+    }
+  }
+}
+
+// Process service events (extracted for reuse with cache)
+async function processServiceEvents(serviceId, appointments, startDate, endDate) {
+  const events = [];
+  
+  const scheduleDoc = await db
+    .collection('service_schedules')
+    .doc(serviceId)
+    .get();
+  const schedule = scheduleDoc.data();
+
+  const bookingCounts = {};
+  appointments.forEach((appointment) => {
+    const dateKey = appointment.date.toDate().toISOString().split('T')[0];
+    const timeKey = `${dateKey}_${appointment.time}`;
+    bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
+  });
 
         if (schedule && schedule.weeklySlots) {
           const current = new Date(startDate);
@@ -279,16 +342,11 @@ function loadServiceEvents(serviceId, startDate, endDate) {
           });
         });
 
-        const calendar = calendarUtils.getCalendar(serviceId);
-        if (calendar) {
-          calendar.removeAllEvents();
-          calendar.addEventSource(events);
-        }
-      },
-      (error) => {
-        Logger.error('Error loading service events:', error);
-      }
-    );
+  const calendar = calendarUtils.getCalendar(serviceId);
+  if (calendar) {
+    calendar.removeAllEvents();
+    calendar.addEventSource(events);
+  }
 }
 
 // Show service event details
@@ -445,12 +503,31 @@ function showCreateServiceEvent(serviceId, date) {
       e.preventDefault();
       const formData = new FormData(e.target);
 
-      try {
-        await createServiceEvent(serviceId, formData);
-        closeModal();
-        calendarUtils.refetchEvents(serviceId);
-      } catch (error) {
-        alert('Error al crear el evento: ' + error.message);
+      // Use loading manager for better UX
+      if (window.calendarLoadingManager) {
+        await window.calendarLoadingManager.withLoader(
+          async () => {
+            await createServiceEvent(serviceId, formData);
+            closeModal();
+            
+            // Invalidate cache for this service
+            if (window.cachedFirebaseQuery) {
+              window.cachedFirebaseQuery.invalidateServiceCache(serviceId);
+            }
+            
+            calendarUtils.refetchEvents(serviceId);
+          },
+          { type: 'global', message: 'Creando evento...' }
+        );
+      } else {
+        // Fallback without loading manager
+        try {
+          await createServiceEvent(serviceId, formData);
+          closeModal();
+          calendarUtils.refetchEvents(serviceId);
+        } catch (error) {
+          alert('Error al crear el evento: ' + error.message);
+        }
       }
     });
 }
